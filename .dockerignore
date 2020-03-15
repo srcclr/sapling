@@ -1,0 +1,10 @@
+# Enables docker build from the project root directory without sending a
+# massive amount of data in the build context to Docker. We start with a
+# wildcard to exclude all by default, followed by opting in files and
+# directories with '!'
+# See: https://docs.docker.com/engine/reference/builder/#dockerignore-file
+
+*
+!entrypoint.sh
+!service/target
+!solver/target

@@ -1,0 +1,70 @@
+props:
+  # This is only for local development and not meant for production use.
+  # For convenience, it is placed here and checked in to source control.
+  # QA/Production MUST use a different set of keys.
+  jwt-private-key: >
+    -----BEGIN PRIVATE KEY-----
+    MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQCiV2LI+7ONPWNF
+    zJqkG58PfvtAvF0QhVw+JAmFRcTPtVOkAjafNtWLN94Ipdqu2l/Nh/EyvOh31PEm
+    4oXu0/TqTKqyvkchO8vrEvZ438vhMpa8WXAsaSsGLBthiKI7wO6hE/Lcf3u9RgmF
+    KLoSCjJTLuc1s7VqrQBoqRbm8+3h7+D/3+xrq92Yz5E7W2dCM6t+iRCmWPrKgtfW
+    UqWOYj2EqpDnOE4Nz3lmI2Uawv+pjxEDhDbV5H3PDQbXDUB2f11Bd9n9zc0RXb9s
+    wcEMJTzKjBheUoqCwNGtEwcyPXsoNGLpH2WMNkw/0B/CfhU5J/nvTDwzUo/sUFR2
+    UByFtxE1AgMBAAECggEATkf5GJVWxXqejh/VSeEP2DcRDOxHrBnCmyxhcuRrvQTg
+    6isvD6MvYcx0wpLHWp1uqPsucZrqNi52gpuknb+TUA/cGAjs37en4xjnxO2VsGfm
+    i7hNAP1Ng9Js+aEbKdkkuIOYDn9iuag2GwHCh8Rm8/mgACNCDciSc+VlZ8SkJtfy
+    bS/BYU96iM0U9FS8hAokAoaufZcmybB/I3fEhqxQ6tt6l8XcHCClGXat6t87Z7Uu
+    e7ElY7BbB1MaTIUIZR44+KquXp9n8+uUgXIaPiqYnrxSNMkA9jjG/5mLcJljQcUN
+    2fF4FZVh76fmq+rTbkTR1PGbwWibd9Sq/4YgWqHU2QKBgQDQeJ0jzCZa2PLMp0vg
+    CionbzTIg1Rxoz7Tgtn3lYZcUXB/Zga1DSnEJaCVaMSlQEVyNVTsPskeQvuYi3I+
+    iCaDg/+90CkAYTwUwzzByMhC4eCgzwjejPxvrrHsLgdVgkh1KlIQY9Ar0ETtwVGQ
+    DdRPKjd/ErWL/OlgifAoVvWJJwKBgQDHWmnjuDjMQODJr8SKb8wk5y0hdiqv7td1
+    yRZFjMFxMIi/UgsvUfkFvX2+yNg2a40Qzu7ZZlerX26PZefsxUmWh3Ch/f83K3YO
+    jWesx3KAa0+lPS9YqHzwwh8bvo313EqUueYGBWhyiVqjAvXL+ic5u93sZSiymZ00
+    d/U4JE30QwKBgHMpHc1Hmix3SfDpvc1ecBjmoqbdfYlk33DiCNxu+hEHX/jQeIYN
+    ZnQXQRUoEfEjhvlnIql6qYkRAYEsDwkiFvxxr5XAZtXx4MmrbGW0L4Ra2Macd87Q
+    3SYov9qzNpPy62nl3f111epOG7WnJBJKwWyV6qBEyosxRA5zRHpUR0DjAoGBAI8q
+    1YUfFltJ9KWjv4iURY3zICw5yupSoxYJ9h64uWvqqSqNZ07yld6Teaz8XJqonsSF
+    eG9U2n1Oqf3995PJE9IxLqiH2zPp2H0W/G/PROIJL0fCKzCGwEO/hcvNC/KX5E/v
+    Ocz1MU+gaSFMzO1Sl70UuIo/E/0/6PB3ffp1yC41AoGAFdZbs8vv8EX7aOnMbn9g
+    i6RbIWQEnJWm2RgqIWmAavn0Uz+ufa8UiJgib+/ojDSSkPxCbVNcrMtqrkbqj+si
+    iXa4ReYtzKMNDixuVGFleBCHLNjxTL8uW1ksPzmHLZ1BdUrlsrAFIKILiBzhQ6d6
+    4KQAhLVZ0CTaQhd165PK0ko=
+    -----END PRIVATE KEY-----
+  jwt-public-key: >
+    -----BEGIN PUBLIC KEY-----
+    MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAoldiyPuzjT1jRcyapBuf
+    D377QLxdEIVcPiQJhUXEz7VTpAI2nzbVizfeCKXartpfzYfxMrzod9TxJuKF7tP0
+    6kyqsr5HITvL6xL2eN/L4TKWvFlwLGkrBiwbYYiiO8DuoRPy3H97vUYJhSi6Egoy
+    Uy7nNbO1aq0AaKkW5vPt4e/g/9/sa6vdmM+RO1tnQjOrfokQplj6yoLX1lKljmI9
+    hKqQ5zhODc95ZiNlGsL/qY8RA4Q21eR9zw0G1w1Adn9dQXfZ/c3NEV2/bMHBDCU8
+    yowYXlKKgsDRrRMHMj17KDRi6R9ljDZMP9Afwn4VOSf570w8M1KP7FBUdlAchbcR
+    NQIDAQAB
+    -----END PUBLIC KEY-----
+  additional-allowed-origins:
+  - http://localhost:3000
+
+solver:
+#  remote: false
+  remote: true
+  uri: http://localhost:8081
+
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost/piplanning
+    username: agile
+  jpa:
+    open-in-view: false
+    # see https://vkuzel.com/spring-boot-jpa-hibernate-atomikos-postgresql-exception for details on these 2 configuration.
+    # in summary, they are to prevent an unimportant SQLFeatureNotSupportedException at startup.
+    properties:
+      hibernate:
+        temp:
+          use_jdbc_metadata_defaults: false
+    database-platform: org.hibernate.dialect.PostgreSQL95Dialect
+
+logging:
+  level:
+    root: INFO
+    org.hibernate.SQL: DEBUG
+    com.sourceclear.agile: DEBUG
