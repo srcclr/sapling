@@ -1,0 +1,13 @@
+spring:
+  jpa:
+    open-in-view: false
+    # see https://vkuzel.com/spring-boot-jpa-hibernate-atomikos-postgresql-exception for details on these 2 configuration.
+    # in summary, they are to prevent an unimportant SQLFeatureNotSupportedException at startup.
+    properties:
+      hibernate:
+        temp:
+          use_jdbc_metadata_defaults: false
+
+logging:
+  level:
+    root: INFO
