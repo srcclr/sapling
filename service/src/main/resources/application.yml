@@ -8,6 +8,10 @@ spring:
         temp:
           use_jdbc_metadata_defaults: false
 
+props:
+  additional-allowed-origins:
+    - https://sapling.netlify.com
+
 logging:
   level:
     root: INFO

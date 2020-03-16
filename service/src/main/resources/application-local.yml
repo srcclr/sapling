@@ -42,6 +42,7 @@ props:
     NQIDAQAB
     -----END PUBLIC KEY-----
   additional-allowed-origins:
+    - https://sapling.netlify.com
     - http://localhost:3000
     - http://localhost:8005
 
