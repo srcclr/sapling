@@ -4,6 +4,7 @@ Planning tool for remote and distributed teams
 
 ## Deployment
 
+- [Architecture](docs/architecture.md)
 - [Deploying to Heroku](docs/heroku.md)
 - [Deploying](docs/frontend.md) the [front end](https://github.com/srcclr/sapling-frontend)
 
