@@ -256,7 +256,7 @@ public class BoardController {
         .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
 
     // More queries
-    int[] sprintCount = { board.getSprints().size() };
+    int[] ordinal = { board.getSprints().stream().map(Sprint::getOrdinal).max(Comparator.comparingInt(i -> i)).orElse(1) };
     int[] priority = { board.getEpics().stream().map(Epic::getPriority).max(Comparator.comparingInt(i -> i)).orElse(1) };
 
     final String SUMMARY = "Summary";
@@ -299,7 +299,7 @@ public class BoardController {
       // Sprints are ordered similarly and given an arbitrary capacity
       var sprints = tickets.stream().map(TicketCU::getSprint)
           .distinct()
-          .map(s -> new Sprint(board, s, "", 20, sprintCount[0]++))
+          .map(s -> new Sprint(board, s, "", 20, ordinal[0]++))
           .collect(Collectors.toList());
       board.getSprints().addAll(sprints);
 
