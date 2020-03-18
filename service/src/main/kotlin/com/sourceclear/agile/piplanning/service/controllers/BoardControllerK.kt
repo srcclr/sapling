@@ -51,7 +51,10 @@ open class BoardControllerK @Autowired constructor(
   @Transactional
   open fun listEpics(@PathVariable boardId : Long): List<EpicO> {
     val b = boardRepository.findById(boardId).orElseThrow { ResponseStatusException(HttpStatus.NOT_FOUND) }!!
-    return b.epics.sortedBy { it.priority }.map { EpicO(it.id, it.name, it.priority) }
+    return b.epics
+        // ensure ordering is stable if same priority
+        .sortedWith(compareBy({ it.priority }, { it.id }))
+        .map { EpicO(it.id, it.name, it.priority) }
   }
 
   @PostMapping("/board/{boardId}/epics")
