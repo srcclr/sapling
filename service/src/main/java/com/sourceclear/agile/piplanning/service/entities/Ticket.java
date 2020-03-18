@@ -5,6 +5,7 @@ package com.sourceclear.agile.piplanning.service.entities;
 
 import com.sourceclear.agile.piplanning.objects.TicketI;
 import com.sourceclear.agile.piplanning.objects.TicketO;
+import com.sourceclear.agile.piplanning.objects.TicketCU;
 
 import javax.persistence.Column;
 import javax.persistence.Entity;
@@ -45,6 +46,13 @@ public class Ticket extends BaseEntity {
   /////////////////////////////// Constructors \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 
   public Ticket() {
+  }
+
+  public Ticket(Board board, Epic epic, TicketCU t) {
+    this.board = this.origin = board;
+    this.epic = epic;
+    this.description = t.getSummary();
+    this.weight = t.getPoints();
   }
 
   public Ticket(Board board, Epic epic, TicketI t) {

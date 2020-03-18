@@ -9,14 +9,16 @@ data class TicketI(val description: String, val weight: Int)
 data class TicketO(val id : Long, val description: String, val weight: Int, val home : Boolean,
                    val epic : Long, val pin: Long?, val dependencies: Set<Long>)
 
-data class TicketC(
-    @JsonProperty("Summary")
+data class TicketCD(
     val summary: String,
-    @JsonProperty("Story Points")
     val points: Int,
-    @JsonProperty("Sprint")
     val sprint: String,
-    @JsonProperty("Epic")
+    val epic: String)
+
+data class TicketCU(
+    val summary: String,
+    val points: Int,
+    val sprint: String,
     val epic: String)
 
 data class BoardI(val name: String)

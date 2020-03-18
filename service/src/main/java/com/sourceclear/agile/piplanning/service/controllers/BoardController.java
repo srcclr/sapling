@@ -3,17 +3,14 @@
  */
 package com.sourceclear.agile.piplanning.service.controllers;
 
-import com.fasterxml.jackson.databind.MapperFeature;
-import com.fasterxml.jackson.dataformat.csv.CsvMapper;
-import com.fasterxml.jackson.dataformat.csv.CsvSchema;
-import com.fasterxml.jackson.module.kotlin.KotlinModule;
 import com.sourceclear.agile.piplanning.objects.BoardI;
 import com.sourceclear.agile.piplanning.objects.BoardL;
 import com.sourceclear.agile.piplanning.objects.BoardO;
 import com.sourceclear.agile.piplanning.objects.Soln;
 import com.sourceclear.agile.piplanning.objects.SprintI;
 import com.sourceclear.agile.piplanning.objects.SprintO;
-import com.sourceclear.agile.piplanning.objects.TicketC;
+import com.sourceclear.agile.piplanning.objects.TicketCD;
+import com.sourceclear.agile.piplanning.objects.TicketCU;
 import com.sourceclear.agile.piplanning.objects.TicketI;
 import com.sourceclear.agile.piplanning.objects.TicketO;
 import com.sourceclear.agile.piplanning.service.components.SolverProperties;
@@ -32,6 +29,9 @@ import com.sourceclear.agile.piplanning.service.repositories.SolutionRepository;
 import com.sourceclear.agile.piplanning.service.repositories.SprintRepository;
 import com.sourceclear.agile.piplanning.service.repositories.TicketRepository;
 import com.sourceclear.agile.piplanning.service.services.ClingoService;
+import org.apache.commons.csv.CSVFormat;
+import org.apache.commons.csv.CSVPrinter;
+import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -45,11 +45,16 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
 import javax.servlet.http.HttpServletResponse;
 import javax.validation.Valid;
+import java.io.BufferedWriter;
+import java.io.ByteArrayInputStream;
+import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -59,6 +64,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
 
 import static java.util.stream.Collectors.groupingBy;
 import static java.util.stream.Collectors.mapping;
@@ -198,13 +204,6 @@ public class BoardController {
     return ResponseEntity.ok(useCurrentSolution(boardId));
   }
 
-  private static final CsvMapper mapper = new CsvMapper();
-  static {
-    mapper.registerModule(new KotlinModule());
-    mapper.disable(MapperFeature.SORT_PROPERTIES_ALPHABETICALLY);
-  }
-  private static final CsvSchema schema = mapper.schemaFor(TicketC.class).withHeader();
-
   @GetMapping(value = "/board/{boardId}/csv", produces = "text/csv")
   @Transactional(readOnly = true)
   public void getCsv(@PathVariable long boardId, HttpServletResponse response) throws Exception {
@@ -216,16 +215,106 @@ public class BoardController {
         .stream()
         .collect(toMap(BaseEntity::getId, Epic::getName));
 
-    List<TicketC> result = Stream.of(solution).flatMap(so ->
+    List<TicketCD> result = Stream.of(solution).flatMap(so ->
         Stream.concat(
             so.getSprints().stream().flatMap(s ->
                 s.getTickets().stream().map(t ->
-                    new TicketC(t.getDescription(), t.getWeight(), s.getName(), epicNames.get(t.getEpic())))),
+                    new TicketCD(t.getDescription(), t.getWeight(), s.getName(), epicNames.get(t.getEpic())))),
             so.getUnassigned().stream().map(t ->
-                new TicketC(t.getDescription(), t.getWeight(), "unassigned", epicNames.get(t.getEpic())))
+                new TicketCD(t.getDescription(), t.getWeight(), "unassigned", epicNames.get(t.getEpic())))
         )).collect(Collectors.toList());
 
-    mapper.writer(schema).writeValues(response.getWriter()).writeAll(result);
+    final String SUMMARY = "Summary";
+    final String STORY_POINTS = "Story Points";
+    final String SPRINT = "Sprint";
+    final String EPIC = "Epic";
+
+    try (BufferedWriter out = new BufferedWriter(response.getWriter());
+         final CSVPrinter printer = new CSVPrinter(out, CSVFormat.DEFAULT
+             .withHeader(SUMMARY, STORY_POINTS, SPRINT, EPIC))) {
+      for (TicketCD r : result) {
+        printer.printRecord(r.getSummary(), r.getPoints(), r.getSprint(), r.getEpic());
+      }
+    }
+  }
+
+  @PostMapping(value = "/board/{boardId}/csv")
+  @Transactional
+  public Map<String, Integer> uploadCsv(@PathVariable long boardId, @RequestParam("file") MultipartFile file) throws Exception {
+
+    Board board = boardRepository.findById(boardId)
+        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+
+    // More queries
+    int[] sprintCount = { board.getSprints().size() };
+    int[] priority = { board.getEpics().stream().map(Epic::getPriority).max(Comparator.comparingInt(i -> i)).orElse(1) };
+
+    final String SUMMARY = "Summary";
+    final String STORY_POINTS = "Custom field (Story Points)";
+    final String SPRINT = "Sprint";
+    final String EPIC = "Custom field (Epic Link)";
+
+    // The file is already in memory
+    try (InputStreamReader reader = new InputStreamReader(new ByteArrayInputStream(file.getBytes()))) {
+
+      int[] errors = { 0 };
+      Set<TicketCU> tickets = StreamSupport.stream(CSVFormat.DEFAULT
+          .withFirstRecordAsHeader()
+          .withAllowDuplicateHeaderNames() // because JIRA
+          .withRecordSeparator(System.lineSeparator())
+          .parse(reader).spliterator(), false)
+          .flatMap(r -> {
+            try {
+              // Do this manually because inputs are probably barely CSV and need fiddling with
+              return Stream.of(
+                  new TicketCU(
+                      r.get(SUMMARY),
+                      // JIRA...
+                      Math.round(Float.parseFloat(StringUtils.defaultIfBlank(r.get(STORY_POINTS), "0"))),
+                      r.get(SPRINT),
+                      r.get(EPIC)));
+            } catch (Exception e) {
+              LOGGER.trace("failed to parse csv record", e);
+              ++errors[0];
+              return Stream.of();
+            }
+          }).collect(Collectors.toSet());
+
+      // Epics are given arbitrary but differing priorities
+      var epics = tickets.stream().map(TicketCU::getEpic)
+          .distinct()
+          .collect(Collectors.toMap(e -> e, e -> new Epic(e, priority[0]++, board)));
+      board.getEpics().addAll(epics.values());
+
+      // Sprints are ordered similarly and given an arbitrary capacity
+      var sprints = tickets.stream().map(TicketCU::getSprint)
+          .distinct()
+          .map(s -> new Sprint(board, s, 20, sprintCount[0]++))
+          .collect(Collectors.toList());
+      board.getSprints().addAll(sprints);
+
+      // Silently drop tickets with invalid epics
+      List<Ticket> tix = tickets.stream().filter(t -> epics.containsKey(t.getEpic()))
+          .map(t -> new Ticket(board, epics.get(t.getEpic()), t))
+          .collect(toList());
+
+      board.getTickets().addAll(tix);
+
+      // Make sure they show up as unassigned
+      epicRepository.saveAll(epics.values());
+      ticketRepository.saveAll(tix); // or Hibernate complains
+      solutionRepository.saveAll(tix.stream().map(t -> new Solution(board, t, true))::iterator);
+
+      LOGGER.debug("added {} epics, {} sprints, {} tickets; {} failed to parse",
+          epics.size(), sprints.size(), tickets.size(), errors[0]);
+
+      return Map.of("epics", epics.size(), "sprints", sprints.size(), "tickets", tickets.size(), "errors", errors[0]);
+    } catch (IllegalArgumentException e) {
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage());
+    } catch (Exception e) {
+      LOGGER.debug("failed to import", e);
+      throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR);
+    }
   }
 
   @PostMapping("/board/{boardId}")

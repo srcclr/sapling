@@ -38,6 +38,13 @@ public class Sprint extends BaseEntity {
   public Sprint() {
   }
 
+  public Sprint(Board board, String name, int capacity, int ordinal) {
+    this.board = board;
+    this.name = name;
+    this.capacity = capacity;
+    this.ordinal = ordinal;
+  }
+
   ////////////////////////////////// Methods \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 
   //------------------------ Implements:

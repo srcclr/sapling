@@ -21,7 +21,6 @@ import javax.persistence.JoinColumn;
 import javax.persistence.ManyToOne;
 import javax.persistence.OneToMany;
 import javax.persistence.Table;
-import javax.xml.bind.annotation.adapters.CollapsedStringAdapter;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -69,10 +68,6 @@ public class Board extends BaseEntity {
   }
 
   ////////////////////////////////// Methods \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
-
-  public Set<Ticket> getTickets() {
-    return getEpics().stream().flatMap(e -> e.getTickets().stream()).collect(Collectors.toSet());
-  }
 
   public Problem toProblem() {
     var epics = getEpics().stream().map(e -> new EpicP(e.getId(),
@@ -151,6 +146,14 @@ public class Board extends BaseEntity {
 
   public void setEpics(Set<Epic> epics) {
     this.epics = epics;
+  }
+
+  public Set<Ticket> getTickets() {
+    return tickets;
+  }
+
+  public void setTickets(Set<Ticket> tickets) {
+    this.tickets = tickets;
   }
 }
 
