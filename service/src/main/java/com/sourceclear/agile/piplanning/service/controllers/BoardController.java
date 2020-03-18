@@ -313,7 +313,7 @@ public class BoardController {
       // Make sure they show up as unassigned
       epicRepository.saveAll(epics.values());
       ticketRepository.saveAll(tix); // or Hibernate complains
-      solutionRepository.saveAll(tix.stream().map(t -> new Solution(board, t, true))::iterator);
+      solutionRepository.saveAll(tix.stream().map(t -> new Solution(board, t, false))::iterator);
 
       LOGGER.debug("added {} epics, {} sprints, {} tickets; {} failed to parse",
           epics.size(), sprints.size(), tickets.size(), errors[0]);

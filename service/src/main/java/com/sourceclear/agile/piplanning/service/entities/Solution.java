@@ -57,10 +57,6 @@ public class Solution extends BaseEntity {
     this(board, null, ticket, true, preview);
   }
 
-  public Solution(Board board, Sprint sprint, Ticket ticket, boolean preview) {
-    this(board, sprint, ticket, false, preview);
-  }
-
   ////////////////////////////////// Methods \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 
   //------------------------ Implements:
