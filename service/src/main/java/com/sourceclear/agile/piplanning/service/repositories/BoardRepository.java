@@ -18,6 +18,7 @@ public interface BoardRepository extends JpaRepository<Board, Long> {
       "LEFT JOIN FETCH b.pins " +
       "LEFT JOIN FETCH b.epics e " +
       "LEFT JOIN FETCH e.tickets " +
+      "LEFT JOIN FETCH b.tickets " +
       "JOIN FETCH b.owner " +
       "WHERE b.id = ?1")
   Optional<Board> findToSolve(long id);

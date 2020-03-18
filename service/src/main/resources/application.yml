@@ -7,6 +7,14 @@ spring:
       hibernate:
         temp:
           use_jdbc_metadata_defaults: false
+  mvc:
+    async:
+      request-timeout: 35s
+      # clingo's time limit must be <= this.
+      # some buffer added for the remote server as well.
+
+solver:
+  timeout: 30
 
 props:
   additional-allowed-origins:

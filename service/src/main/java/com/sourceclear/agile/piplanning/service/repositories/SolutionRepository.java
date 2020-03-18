@@ -18,8 +18,19 @@ public interface SolutionRepository extends JpaRepository<Solution, Long> {
       "LEFT JOIN FETCH t.origin " +
       "LEFT JOIN FETCH t.board " +
       "LEFT JOIN FETCH b.owner " +
-      "WHERE s.board.id = ?1")
+      "WHERE s.board.id = ?1 and s.preview = false")
   Set<Solution> findCurrentSolution(long id);
+
+  @Query("SELECT s " +
+      "FROM Solution s " +
+      "JOIN FETCH s.board b " +
+      "LEFT JOIN FETCH s.sprint " +
+      "JOIN FETCH s.ticket t " +
+      "LEFT JOIN FETCH t.origin " +
+      "LEFT JOIN FETCH t.board " +
+      "LEFT JOIN FETCH b.owner " +
+      "WHERE s.board.id = ?1 and s.preview = true")
+  Set<Solution> findCurrentPreview(long id);
 
   /**
    * Hibernate reorders SQL statements without regard for commutativity, because of course it does.
@@ -31,6 +42,16 @@ public interface SolutionRepository extends JpaRepository<Solution, Long> {
    */
   @Modifying
   @Transactional
-  @Query("delete from Solution c where c.board = ?1")
-  void deleteSolution(Board board);
+  @Query("delete from Solution s where s.board = ?1 and s.preview = false")
+  void deleteRealSolution(Board board);
+
+  @Modifying
+  @Transactional
+  @Query("delete from Solution s where s.board = ?1 and s.preview = true")
+  void deletePreviewSolution(Board board);
+
+  @Modifying
+  @Transactional
+  @Query("update Solution s set s.preview = false where s.board = ?1")
+  void acceptPreviewSolution(Board board);
 }

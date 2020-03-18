@@ -37,22 +37,28 @@ public class Solution extends BaseEntity {
   @Column
   private boolean unassigned;
 
+  @Column
+  private boolean preview;
+
   /////////////////////////////// Constructors \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 
   public Solution() {
   }
 
-  public Solution(Board board, Sprint sprint, Ticket ticket, boolean unassigned) {
+  public Solution(Board board, Sprint sprint, Ticket ticket, boolean unassigned, boolean preview) {
     this.board = board;
     this.sprint = sprint;
     this.ticket = ticket;
     this.unassigned = unassigned;
+    this.preview = preview;
   }
 
-  public Solution(Board board, Ticket ticket, boolean unassigned) {
-    this.board = board;
-    this.ticket = ticket;
-    this.unassigned = unassigned;
+  public Solution(Board board, Ticket ticket, boolean preview) {
+    this(board, null, ticket, true, preview);
+  }
+
+  public Solution(Board board, Sprint sprint, Ticket ticket, boolean preview) {
+    this(board, sprint, ticket, false, preview);
   }
 
   ////////////////////////////////// Methods \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -97,5 +103,13 @@ public class Solution extends BaseEntity {
 
   public void setUnassigned(boolean unassigned) {
     this.unassigned = unassigned;
+  }
+
+  public boolean isPreview() {
+    return preview;
+  }
+
+  public void setPreview(boolean preview) {
+    this.preview = preview;
   }
 }

@@ -3,6 +3,9 @@
  */
 package com.sourceclear.agile.piplanning.service.controllers;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
+import com.fasterxml.jackson.module.kotlin.KotlinModule;
 import com.sourceclear.agile.piplanning.objects.BoardI;
 import com.sourceclear.agile.piplanning.objects.BoardL;
 import com.sourceclear.agile.piplanning.objects.BoardO;
@@ -33,6 +36,7 @@ import com.sourceclear.agile.piplanning.service.services.ClingoService;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVPrinter;
 import org.apache.commons.lang3.StringUtils;
+import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -40,6 +44,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -50,11 +55,13 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
+import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 
 import javax.servlet.http.HttpServletResponse;
 import javax.validation.Valid;
 import java.io.BufferedWriter;
 import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -63,6 +70,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
@@ -79,6 +87,9 @@ public class BoardController {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(BoardController.class);
 
+  private static final ObjectMapper MAPPER = new ObjectMapper()
+      .registerModule(new KotlinModule()).registerModule(new Jdk8Module());
+
   ////////////////////////////// Class Methods \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 
   //////////////////////////////// Attributes \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -89,18 +100,20 @@ public class BoardController {
   private final SprintRepository sprintRepository;
   private final TicketRepository ticketRepository;
   private final ClingoService clingoService;
+  private final ClingoService clingoServiceNew;
   private final SolverProperties solverProperties;
 
   /////////////////////////////// Constructors \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 
   @Autowired
-  public BoardController(BoardRepository boardRepository, EpicRepository epicRepository, SolutionRepository solutionRepository, SprintRepository sprintRepository, TicketRepository ticketRepository, ClingoService clingoService, SolverProperties solverProperties) {
+  public BoardController(BoardRepository boardRepository, EpicRepository epicRepository, SolutionRepository solutionRepository, SprintRepository sprintRepository, TicketRepository ticketRepository, ClingoService clingoService, ClingoService clingoServiceNew, SolverProperties solverProperties) {
     this.boardRepository = boardRepository;
     this.epicRepository = epicRepository;
     this.solutionRepository = solutionRepository;
     this.sprintRepository = sprintRepository;
     this.ticketRepository = ticketRepository;
     this.clingoService = clingoService;
+    this.clingoServiceNew = clingoServiceNew;
     this.solverProperties = solverProperties;
   }
 
@@ -184,7 +197,7 @@ public class BoardController {
     Ticket t = new Ticket(board, epic, ticket);
     t = ticketRepository.save(t);
 
-    solutionRepository.save(new Solution(board, t, true));
+    solutionRepository.save(new Solution(board, t, false));
 
     return ResponseEntity.ok(new TicketO(t.getId(), t.getDescription(), t.getWeight(), true, epic.getId(),
         null, new HashSet<>()));
@@ -199,12 +212,6 @@ public class BoardController {
         .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
 
     ticketRepository.deleteById(ticketId);
-  }
-
-  @GetMapping("/board/{boardId}")
-  @Transactional(readOnly = true)
-  public ResponseEntity<BoardO> getSolution(@PathVariable long boardId) {
-    return ResponseEntity.ok(useCurrentSolution(boardId));
   }
 
   @GetMapping(value = "/board/{boardId}/csv", produces = "text/csv")
@@ -320,10 +327,69 @@ public class BoardController {
     }
   }
 
+  @GetMapping("/board/{boardId}")
+  @Transactional(readOnly = true)
+  public ResponseEntity<BoardO> getSolution(@PathVariable long boardId) {
+    return ResponseEntity.ok(useCurrentSolution(boardId));
+  }
+
   @PostMapping("/board/{boardId}")
   @Transactional
   public ResponseEntity<BoardO> compute(@PathVariable long boardId) {
     return computeNewSolution(boardId);
+  }
+
+  @GetMapping("/board/{boardId}/preview")
+  @Transactional(readOnly = true)
+  public ResponseEntity<BoardO> getPreview(@PathVariable long boardId) {
+    return ResponseEntity.ok(useCurrentPreview(boardId));
+  }
+
+  @PostMapping(value = "/board/{boardId}/preview", produces = "application/x-ndjson")
+  @CrossOrigin
+  @Transactional // this is held open for the duration of the solver/async request timeout
+  public StreamingResponseBody preview(@PathVariable long boardId) {
+    // TODO lock board?
+    return out -> {
+      Board board = boardRepository.findToSolve(boardId)
+          .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+      computePreviewSolutions(board, answer -> {
+        try {
+          out.write(MAPPER.writeValueAsBytes(answer));
+          out.write('\n');
+          out.flush();
+          LOGGER.trace("written answer back to client");
+          return true;
+        } catch (IOException e) {
+          // TODO an IllegalStateException is still printed from within Tomcat.
+          //  We can try upgrading Tomcat/Spring Boot or switching to Undertow.
+          //  See https://github.com/spring-projects/spring-boot/issues/15057#issuecomment-435310964
+
+          LOGGER.trace("error occurred writing answer; connection closed?", e);
+          // This usually means that the connection was closed, most probably the client aborting.
+          return false;
+        }
+      });
+    };
+  }
+
+  @PostMapping(value = "/board/{boardId}/preview/accept")
+  @CrossOrigin
+  @Transactional
+  public void acceptPreview(@PathVariable long boardId) {
+    Board board = boardRepository.findById(boardId)
+        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+    solutionRepository.deleteRealSolution(board);
+    solutionRepository.acceptPreviewSolution(board);
+  }
+
+  @DeleteMapping(value = "/board/{boardId}/preview")
+  @CrossOrigin
+  @Transactional
+  public void deletePreview(@PathVariable long boardId) {
+    Board board = boardRepository.findById(boardId)
+        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+    solutionRepository.deletePreviewSolution(board);
   }
 
   @GetMapping("/boards")
@@ -380,6 +446,54 @@ public class BoardController {
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND))));
   }
 
+  private void computePreviewSolutions(Board board, Function<BoardO, Boolean> answers) {
+
+    var sprintsById = board.getSprints().stream().collect(Collectors.toMap(BaseEntity::getId, s -> s));
+    var tickets = board.getTickets();
+    var ticketsById = tickets.stream().collect(Collectors.toMap(BaseEntity::getId, t -> t));
+
+    try {
+      if (solverProperties.isRemote()) {
+        LOGGER.trace("solving incrementally remotely");
+        clingoService.solveIncrementallyRemotely(solverProperties.getUri(), board.toProblem(),
+            handlePreviewSolution(board, ticketsById, sprintsById, answers));
+      } else {
+        LOGGER.trace("solving incrementally locally");
+        clingoServiceNew.solveIncrementally(board.toProblem(),
+            handlePreviewSolution(board, ticketsById, sprintsById, answers));
+      }
+    } catch (Exception e) {
+      LOGGER.error("Failed to run solver {}",
+          solverProperties.isRemote() ? "remotely" : "locally", e);
+      throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
+
+  private Function<Set<Soln>, Boolean> handlePreviewSolution(Board board, Map<Long, Ticket> ticketsById,
+                                                             Map<Long, Sprint> sprintsById,
+                                                             Function<BoardO, Boolean> answers) {
+
+    return soln -> {
+      checkUnsat(soln);
+
+      LOGGER.trace("got set of solutions");
+
+      Set<Solution> solution = soln.stream()
+          .map(s ->
+              new Solution(board,
+                  s.getSprintId().map(sprintsById::get).orElse(null),
+                  ticketsById.get(s.getTicketId()),
+                  s.getUnassigned(),
+                  true))
+          .collect(Collectors.toSet());
+
+      solutionRepository.deletePreviewSolution(board);
+      solutionRepository.saveAll(solution);
+
+      return answers.apply(reconstructBoard(solution, board));
+    };
+  }
+
   /**
    * Computes, saves, and returns a new solution for the given board.
    */
@@ -401,30 +515,39 @@ public class BoardController {
       throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR);
     }
 
-    if (soln.isEmpty()) {
-      // Unsat is still possible because of pins or having no tickets
-      throw new ResponseStatusException(HttpStatus.NOT_ACCEPTABLE);
-    }
+    checkUnsat(soln);
 
     Set<Solution> solution = soln.stream()
         .map(s ->
             new Solution(board,
                 s.getSprintId().map(sprintsById::get).orElse(null),
                 ticketsById.get(s.getTicketId()),
-                s.getUnassigned()))
+                s.getUnassigned(),
+                false))
         .collect(Collectors.toSet());
-    solutionRepository.deleteSolution(board);
+    solutionRepository.deleteRealSolution(board);
     solutionRepository.saveAll(solution);
 
-    return respond(solution, board);
+    return reconstructBoard(solution, board);
   }
 
-  /**
-   * Returns the current solution for the given board
-   */
-  private BoardO useCurrentSolution(long boardId) {
-    Set<Solution> rawAssignments = solutionRepository.findCurrentSolution(boardId);
+  private void checkUnsat(Set<Soln> soln) {
+    if (soln.isEmpty()) {
+      // Unsat is still possible because of pins or having no tickets
+      throw new ResponseStatusException(HttpStatus.NOT_ACCEPTABLE);
+    }
+  }
 
+  private BoardO useCurrentSolution(long boardId) {
+    return useCurrentBoard(boardId, solutionRepository.findCurrentSolution(boardId));
+  }
+
+  private BoardO useCurrentPreview(long boardId) {
+    return useCurrentBoard(boardId, solutionRepository.findCurrentPreview(boardId));
+  }
+
+  @NotNull
+  private BoardO useCurrentBoard(long boardId, Set<Solution> rawAssignments) {
     Board board;
     if (rawAssignments.isEmpty()) {
       // It's only possible that there's no solution when the board is empty.
@@ -434,13 +557,13 @@ public class BoardController {
     } else {
       board = rawAssignments.iterator().next().getBoard();
     }
-    return respond(rawAssignments, board);
+    return reconstructBoard(rawAssignments, board);
   }
 
   /**
    * Given a solution for the given board in flattened form, constructs the nested version
    */
-  private BoardO respond(Set<Solution> rawAssignments, Board board) {
+  private BoardO reconstructBoard(Set<Solution> rawAssignments, Board board) {
     var resultSprints = new ArrayList<SprintO>();
     var unassigned = new ArrayList<TicketO>();
     var result = new BoardO(board.getId(), board.getName(), board.getOwner().getUsername(),

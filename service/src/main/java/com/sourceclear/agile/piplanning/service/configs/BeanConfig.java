@@ -1,5 +1,6 @@
 package com.sourceclear.agile.piplanning.service.configs;
 
+import com.sourceclear.agile.piplanning.service.components.SolverProperties;
 import com.sourceclear.agile.piplanning.service.objects.DatabaseType;
 import com.sourceclear.agile.piplanning.service.services.ClingoService;
 import com.sourceclear.agile.piplanning.service.services.ClingoServiceImpl;
@@ -48,8 +49,13 @@ public class BeanConfig {
   }
 
   @Bean
-  public ClingoService clingoService() {
-    return new ClingoServiceImpl();
+  public ClingoService clingoService(SolverProperties solverProperties) {
+    return new ClingoServiceImpl(solverProperties.getTimeout(), false);
+  }
+
+  @Bean
+  public ClingoService clingoServiceNew(SolverProperties solverProperties) {
+    return new ClingoServiceImpl(solverProperties.getTimeout(), true);
   }
 
   //------------------------ Implements:

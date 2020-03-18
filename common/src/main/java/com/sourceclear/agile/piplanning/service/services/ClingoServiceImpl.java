@@ -14,9 +14,11 @@ import org.apache.commons.io.IOUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
@@ -27,6 +29,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -45,9 +48,21 @@ public class ClingoServiceImpl implements ClingoService {
   private static final Pattern OPTIMAL = Pattern.compile("Answer[^\n]+\n([^\n]*)\nOptimization");
   private static final Pattern FACT = Pattern.compile("(\\w+)\\(([^)]+)\\)");
 
-  private Client client = new Client();
+  private static final Pattern ANSWER = Pattern.compile("Answer: \\d+");
+
+  private static String ENCODING;
+
+  private final int timeout;
+  private final boolean newEncoding;
+
+  private final Client client = new Client();
 
   /////////////////////////////// Constructors \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+
+  public ClingoServiceImpl(int timeout, boolean newEncoding) {
+    this.timeout = timeout;
+    this.newEncoding = newEncoding;
+  }
 
   ////////////////////////////////// Methods \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 
@@ -55,8 +70,26 @@ public class ClingoServiceImpl implements ClingoService {
 
   @Override
   public Set<Soln> solve(Problem problem) throws IOException {
+    if (LOGGER.isTraceEnabled()) {
+      LOGGER.trace("solving {}", client.getObjectMapper().writeValueAsString(problem));
+    }
     return interpret(parse(solve(buildProgram(problem.getEpics(), problem.getTickets(),
         problem.getSprints(), problem.getPins(), problem.getDeps()))));
+  }
+
+  @Override
+  public void solveIncrementally(Problem problem, Function<Set<Soln>, Boolean> answers) throws IOException {
+    if (LOGGER.isTraceEnabled()) {
+      LOGGER.trace("solving {}", client.getObjectMapper().writeValueAsString(problem));
+    }
+    String instance = buildProgram(problem.getEpics(), problem.getTickets(),
+        problem.getSprints(), problem.getPins(), problem.getDeps());
+    callSolverWithIntermediateAnswers(instance, a -> answers.apply(interpret(a)));
+  }
+
+  @Override
+  public void solveIncrementallyRemotely(URI uri, Problem problem, Function<Set<Soln>, Boolean> answers) throws IOException {
+    client.solvePreview(uri, problem, answers::apply);
   }
 
   @Override
@@ -81,18 +114,9 @@ public class ClingoServiceImpl implements ClingoService {
     List<Fact> result = new ArrayList<>();
     Matcher mOptimal = OPTIMAL.matcher(output);
     while (mOptimal.find()) {
-      // Discard the previous answer
-      result = new ArrayList<>();
       String rawAnswer = mOptimal.group(1);
-
-      Matcher mFact = FACT.matcher(rawAnswer);
-      while (mFact.find()) {
-        String name = mFact.group(1);
-        List<String> args = Arrays.stream(mFact.group(2).split(","))
-            .map(String::trim)
-            .collect(Collectors.toList());
-        result.add(new Fact(name, args));
-      }
+      // Discard the previous answer
+      result = parseFacts(rawAnswer);
     }
 
     return result;
@@ -104,15 +128,71 @@ public class ClingoServiceImpl implements ClingoService {
 
   //---------------------------- Utility Methods ------------------------------
 
-  private String getEncoding() {
-    // TODO cache
-    final String encoding;
-    try {
-      encoding = IOUtils.toString(getClass().getResource("/encoding.lp"), StandardCharsets.UTF_8).trim();
-    } catch (IOException e) {
-      throw new IllegalStateException("could not read encoding program", e);
+  private void callSolverWithIntermediateAnswers(String program, Function<List<Fact>, Boolean> answers) throws IOException {
+    final ProcessBuilder processBuilder = new ProcessBuilder();
+    String[] cmd = buildCommand();
+    processBuilder.command(cmd);
+    processBuilder.redirectErrorStream(true);
+
+    final Process process = processBuilder.start();
+    try (BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(process.getOutputStream()))) {
+      writer.write(program);
     }
-    return encoding;
+
+    boolean terminated = false;
+    try (final BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
+      String line;
+      // We may block here, and the only way to continue is for clingo to time out
+      while ((line = reader.readLine()) != null) {
+        Matcher m = ANSWER.matcher(line);
+        if (m.matches()) {
+          if (!answers.apply(parseFacts(reader.readLine()))) {
+            terminated = true;
+            break;
+          }
+        }
+      }
+    }
+    process.destroy();
+    LOGGER.trace("solver {}", terminated ? "terminated" : "finished");
+  }
+
+  private String[] buildCommand() {
+    String[] cmd;
+    if (timeout == 0) {
+      cmd = new String[] {"clingo", "-"};
+    } else {
+      cmd = new String[] {"clingo", "--time-limit", Integer.toString(timeout), "-"};
+    }
+    return cmd;
+  }
+
+  private synchronized String getEncoding() {
+    if (ENCODING == null) {
+      try {
+        ENCODING = IOUtils.toString(getClass().getResource(
+            String.format("/encoding%s.lp", newEncoding ? "1" : "")), StandardCharsets.UTF_8).trim();
+      } catch (IOException e) {
+        throw new IllegalStateException("could not read encoding program", e);
+      }
+    }
+    return ENCODING;
+  }
+
+  /**
+   * This only works if there are no functors
+   */
+  private static List<Fact> parseFacts(String line) {
+    Matcher mFact = FACT.matcher(line);
+    List<Fact> result = new ArrayList<>();
+    while (mFact.find()) {
+      String name = mFact.group(1);
+      List<String> args = Arrays.stream(mFact.group(2).split(","))
+          .map(String::trim)
+          .collect(Collectors.toList());
+      result.add(new Fact(name, args));
+    }
+    return result;
   }
 
   private Set<Soln> interpret(List<Fact> facts) {
@@ -131,11 +211,10 @@ public class ClingoServiceImpl implements ClingoService {
 
   private String callSolver(String program) throws IOException {
     final ProcessBuilder processBuilder = new ProcessBuilder();
-    processBuilder.command("clingo", "-");
+    processBuilder.command(buildCommand());
     processBuilder.redirectErrorStream(true);
 
     final Process process = processBuilder.start();
-    // This should be fine because clingo needs the entire program to start anyway
     try (BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(process.getOutputStream()))) {
       writer.write(program);
     }
@@ -152,7 +231,7 @@ public class ClingoServiceImpl implements ClingoService {
       // TODO aggregate this info somewhere
       LOGGER.debug("solved in {}s", stopwatch.elapsed(TimeUnit.SECONDS));
     } catch (InterruptedException e) {
-      // TODO add a timeout and generalize the thrown exception
+      // A timeout won't cause this, it'll just return a partial output
       throw new IllegalStateException();
     }
 

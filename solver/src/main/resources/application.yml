@@ -4,4 +4,12 @@ server:
 logging:
   level:
     root: INFO
-    com.sourceclear.agile: DEBUG
+    com.sourceclear.agile: TRACE
+
+spring:
+  mvc:
+    async:
+      request-timeout: 32s
+
+solver:
+  timeout: 30

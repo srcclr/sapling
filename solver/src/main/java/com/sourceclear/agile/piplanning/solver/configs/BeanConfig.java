@@ -19,8 +19,13 @@ public class BeanConfig {
   ////////////////////////////////// Methods \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 
   @Bean
-  public ClingoService clingoService() {
-    return new ClingoServiceImpl();
+  public ClingoService clingoService(SolverProperties solverProperties) {
+    return new ClingoServiceImpl(solverProperties.getTimeout(), false);
+  }
+
+  @Bean
+  public ClingoService clingoServiceNew(SolverProperties solverProperties) {
+    return new ClingoServiceImpl(solverProperties.getTimeout(), true);
   }
 
   //------------------------ Implements:

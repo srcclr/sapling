@@ -1,12 +1,9 @@
-package com.sourceclear.agile.piplanning.service.components;
+package com.sourceclear.agile.piplanning.solver.configs;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.jmx.export.annotation.ManagedResource;
 import org.springframework.stereotype.Component;
 import org.springframework.validation.annotation.Validated;
-
-import javax.validation.constraints.NotNull;
-import java.net.URI;
 
 @Validated
 @Component
@@ -19,11 +16,6 @@ public class SolverProperties {
   ////////////////////////////// Class Methods \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 
   //////////////////////////////// Attributes \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
-
-  @NotNull
-  private boolean remote;
-
-  private URI uri;
 
   private int timeout; // seconds
 
@@ -40,22 +32,6 @@ public class SolverProperties {
   //---------------------------- Utility Methods ------------------------------
 
   //---------------------------- Property Methods -----------------------------
-
-  public boolean isRemote() {
-    return remote;
-  }
-
-  public void setRemote(boolean remote) {
-    this.remote = remote;
-  }
-
-  public URI getUri() {
-    return uri;
-  }
-
-  public void setUri(URI uri) {
-    this.uri = uri;
-  }
 
   public int getTimeout() {
     return timeout;
