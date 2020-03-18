@@ -7,6 +7,7 @@ import com.sourceclear.agile.piplanning.objects.BoardI;
 import com.sourceclear.agile.piplanning.objects.BoardL;
 import com.sourceclear.agile.piplanning.objects.BoardO;
 import com.sourceclear.agile.piplanning.objects.Soln;
+import com.sourceclear.agile.piplanning.objects.SprintE;
 import com.sourceclear.agile.piplanning.objects.SprintI;
 import com.sourceclear.agile.piplanning.objects.SprintO;
 import com.sourceclear.agile.piplanning.objects.TicketCD;
@@ -107,13 +108,14 @@ public class BoardController {
 
   @PutMapping("/sprint/{sprintId}")
   @Transactional
-  public void updateSprint(@Valid @RequestBody SprintI sprint,
+  public void updateSprint(@Valid @RequestBody SprintE sprint,
                            @PathVariable long sprintId) {
     Sprint sprint1 = sprintRepository.findById(sprintId)
         .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
 
     // Removing tickets is done in another endpoint
     sprint1.setName(sprint.getName());
+    sprint1.setGoal(sprint.getGoal());
 
     if (sprint1.getCapacity() != sprint.getCapacity()) {
       sprint1.setCapacity(sprint.getCapacity());
@@ -133,6 +135,7 @@ public class BoardController {
     s.setCapacity(sprint.getCapacity());
     s.setName(sprint.getName());
     s.setBoard(board);
+    s.setGoal("");
 
     s.setOrdinal(1 + board.getSprints().stream()
         .map(Sprint::getOrdinal)
@@ -141,7 +144,7 @@ public class BoardController {
 
     s = sprintRepository.save(s);
     board.getSprints().add(s);
-    return ResponseEntity.ok(new SprintO(s.getId(), s.getName(), s.getCapacity(), new ArrayList<>()));
+    return ResponseEntity.ok(new SprintO(s.getId(), s.getName(), s.getGoal(), s.getCapacity(), new ArrayList<>()));
   }
 
   @DeleteMapping("/sprint/{sprintId}")
@@ -289,7 +292,7 @@ public class BoardController {
       // Sprints are ordered similarly and given an arbitrary capacity
       var sprints = tickets.stream().map(TicketCU::getSprint)
           .distinct()
-          .map(s -> new Sprint(board, s, 20, sprintCount[0]++))
+          .map(s -> new Sprint(board, s, "", 20, sprintCount[0]++))
           .collect(Collectors.toList());
       board.getSprints().addAll(sprints);
 
@@ -465,7 +468,8 @@ public class BoardController {
     List<SprintO> sprints = board.getSprints().stream()
         // Correct order
         .sorted(Comparator.comparingInt(Sprint::getOrdinal))
-        .map(sprint -> new SprintO(sprint.getId(), sprint.getName(), sprint.getCapacity(), assignments.getOrDefault(sprint.getId(), Collections.emptyList()).stream()
+        .map(sprint -> new SprintO(sprint.getId(), sprint.getName(), sprint.getGoal(), sprint.getCapacity(),
+            assignments.getOrDefault(sprint.getId(), Collections.emptyList()).stream()
             .map(ticketsById::get)
             .map(t -> t.toModel(pins.get(t.getId()), deps.getOrDefault(t.getId(), new HashSet<>())))
             // Ensure ordering remains stable

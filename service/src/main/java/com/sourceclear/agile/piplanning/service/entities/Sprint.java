@@ -28,6 +28,9 @@ public class Sprint extends BaseEntity {
   private String name;
 
   @Column
+  private String goal;
+
+  @Column
   private int capacity;
 
   @Column
@@ -38,9 +41,10 @@ public class Sprint extends BaseEntity {
   public Sprint() {
   }
 
-  public Sprint(Board board, String name, int capacity, int ordinal) {
+  public Sprint(Board board, String name, String goal, int capacity, int ordinal) {
     this.board = board;
     this.name = name;
+    this.goal = goal;
     this.capacity = capacity;
     this.ordinal = ordinal;
   }
@@ -87,5 +91,13 @@ public class Sprint extends BaseEntity {
 
   public void setOrdinal(int ordinal) {
     this.ordinal = ordinal;
+  }
+
+  public String getGoal() {
+    return goal;
+  }
+
+  public void setGoal(String goal) {
+    this.goal = goal;
   }
 }

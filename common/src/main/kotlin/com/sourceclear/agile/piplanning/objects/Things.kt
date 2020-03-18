@@ -38,11 +38,17 @@ data class BoardO(
 data class SprintO(
     val id: Long,
     val name: String,
+    val goal: String,
     val capacity: Int,
     val tickets: List<TicketO>)
 
 data class SprintI(
     val name: String,
+    val capacity: Int)
+
+data class SprintE(
+    val name: String,
+    val goal: String,
     val capacity: Int)
 
 data class Fact(
