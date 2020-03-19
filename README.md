@@ -48,3 +48,9 @@ Starting a local database
 ```sh
 scripts/db.sh fresh
 ```
+
+Updating jOOQ generated code
+
+```sh
+mvn compile -P codegen
+```

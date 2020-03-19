@@ -154,60 +154,66 @@
           </execution>
         </executions>
       </plugin>
-
-
-      <plugin>
-
-        <groupId>org.jooq</groupId>
-        <artifactId>jooq-codegen-maven</artifactId>
-        <version>${jooq.version}</version>
-
-        <executions>
-          <execution>
-            <goals>
-              <goal>generate</goal>
-            </goals>
-          </execution>
-        </executions>
-
-        <dependencies>
-          <dependency>
-            <groupId>org.postgresql</groupId>
-            <artifactId>postgresql</artifactId>
-            <!-- Depends on the version pulled in by Spring Boot -->
-            <version>42.2.5</version>
-          </dependency>
-        </dependencies>
-
-        <configuration>
-
-          <jdbc>
-            <driver>org.postgresql.Driver</driver>
-            <url>jdbc:postgresql://localhost/piplanning</url>
-            <user>agile</user>
-            <password></password>
-          </jdbc>
-
-          <generator>
-            <database>
-              <name>org.jooq.meta.postgres.PostgresDatabase</name>
-              <includes>.*</includes>
-              <inputSchema>agile</inputSchema>
-            </database>
-            <target>
-              <packageName>com.sourceclear.agile.piplanning.service.jooq</packageName>
-              <!--
-              We commit generated code for now. This seems better than requiring Postgres
-              to be running at build time in CI, though we could in theory set that up.
-              -->
-              <!-- <directory>target/generated-sources/jooq</directory> -->
-              <directory>src/main/java</directory>
-            </target>
-          </generator>
-        </configuration>
-      </plugin>
-
     </plugins>
   </build>
+
+  <profiles>
+    <profile>
+      <id>codegen</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.jooq</groupId>
+            <artifactId>jooq-codegen-maven</artifactId>
+            <version>${jooq.version}</version>
+
+            <executions>
+              <execution>
+                <goals>
+                  <goal>generate</goal>
+                </goals>
+              </execution>
+            </executions>
+
+            <dependencies>
+              <dependency>
+                <groupId>org.postgresql</groupId>
+                <artifactId>postgresql</artifactId>
+                <!-- Depends on the version pulled in by Spring Boot -->
+                <version>42.2.5</version>
+              </dependency>
+            </dependencies>
+
+            <configuration>
+
+              <jdbc>
+                <driver>org.postgresql.Driver</driver>
+                <url>jdbc:postgresql://localhost/piplanning</url>
+                <user>agile</user>
+                <password></password>
+              </jdbc>
+
+              <generator>
+                <database>
+                  <name>org.jooq.meta.postgres.PostgresDatabase</name>
+                  <includes>.*</includes>
+                  <inputSchema>agile</inputSchema>
+                </database>
+                <target>
+                  <packageName>com.sourceclear.agile.piplanning.service.jooq</packageName>
+                  <!--
+                  We commit generated code for now. This seems better than requiring Postgres
+                  to be running at build time in CI, though we could in theory set that up.
+                  -->
+                  <!-- <directory>target/generated-sources/jooq</directory> -->
+                  <directory>src/main/java</directory>
+                </target>
+              </generator>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+  </profiles>
 
 </project>
