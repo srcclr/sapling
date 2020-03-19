@@ -1,21 +1,17 @@
 # Sapling
 
-The tool Sapling allows participants to do SAFe PI planning in a remote and distributed fashion in conjunction with video conferencing tools such as Zoom. Here is a sample agenda that explains how to use Sapling and Zoom. 
+![sapling](docs/sapling.png)
 
-## Deployment
+[Live demo](https://sapling.netlify.com/)
 
-- [Architecture](docs/architecture.md)
-- [Deploying to Heroku](docs/heroku.md)
-- [Deploying](docs/frontend.md) the [front end](https://github.com/srcclr/sapling-frontend)
+Create an account or use these credentials:
 
-## Development
+username: `demo@example.com`<br/>
+password: `test`
 
-Starting a local database
-
-```sh
-scripts/db.sh fresh
-```
 ## Using Sapling during [**PI planning**](https://www.scaledagileframework.com/pi-planning/)
+
+The tool Sapling allows participants to do SAFe PI planning in a remote and distributed fashion in conjunction with video conferencing tools such as Zoom. Here is a sample agenda that explains how to use Sapling and Zoom.
 
 **Prerequisite -**
 
@@ -38,3 +34,17 @@ scripts/db.sh fresh
   - RTE being the host can also join the different rooms to observe any discussion if required
   - RTE and SMs can use the &quot;Broadcast message&quot; feature to give instructions or timing announcements.
 - &quot;Export to CSV&quot; allows you to move your plans into your Agile Project Management tool such as JIRA.
+
+## Deployment
+
+- [Architecture](docs/architecture.md)
+- [Deploying to Heroku](docs/heroku.md)
+- [Deploying](docs/frontend.md) the [front end](https://github.com/srcclr/sapling-frontend)
+
+## Development
+
+Starting a local database
+
+```sh
+scripts/db.sh fresh
+```
