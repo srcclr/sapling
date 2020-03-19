@@ -41,9 +41,6 @@ public class Board extends BaseEntity {
   @OneToMany(mappedBy = "board", cascade = {CascadeType.ALL}, orphanRemoval = true)
   private Set<Ticket> tickets = new HashSet<>();
 
-  @OneToMany(mappedBy = "origin", cascade = {CascadeType.ALL}, orphanRemoval = true)
-  private Set<Ticket> ownedTickets = new HashSet<>();
-
   @OneToMany(mappedBy = "board", cascade = {CascadeType.ALL}, orphanRemoval = true)
   private Set<Epic> epics = new HashSet<>();
 
@@ -108,20 +105,12 @@ public class Board extends BaseEntity {
     this.name = name;
   }
 
-  public Set<Ticket> getOwnedTickets() {
-    return ownedTickets;
-  }
-
   public User getOwner() {
     return owner;
   }
 
   public void setOwner(User owner) {
     this.owner = owner;
-  }
-
-  public void setOwnedTickets(Set<Ticket> ownedTickets) {
-    this.ownedTickets = ownedTickets;
   }
 
   public Set<Pin> getPins() {

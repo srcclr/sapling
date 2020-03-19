@@ -27,6 +27,7 @@ import com.sourceclear.agile.piplanning.service.entities.Solution;
 import com.sourceclear.agile.piplanning.service.entities.Sprint;
 import com.sourceclear.agile.piplanning.service.entities.Ticket;
 import com.sourceclear.agile.piplanning.service.entities.login.User;
+import com.sourceclear.agile.piplanning.service.jooq.tables.records.StoryRequestsRecord;
 import com.sourceclear.agile.piplanning.service.repositories.BoardRepository;
 import com.sourceclear.agile.piplanning.service.repositories.EpicRepository;
 import com.sourceclear.agile.piplanning.service.repositories.SolutionRepository;
@@ -37,6 +38,7 @@ import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVPrinter;
 import org.apache.commons.lang3.StringUtils;
 import org.jetbrains.annotations.NotNull;
+import org.jooq.impl.DefaultDSLContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -71,14 +73,17 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
+import static com.sourceclear.agile.piplanning.service.jooq.tables.StoryRequests.STORY_REQUESTS;
 import static java.util.stream.Collectors.groupingBy;
 import static java.util.stream.Collectors.mapping;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
+import static org.jooq.impl.DSL.selectOne;
 
 @RestController
 public class BoardController {
@@ -89,6 +94,8 @@ public class BoardController {
 
   private static final ObjectMapper MAPPER = new ObjectMapper()
       .registerModule(new KotlinModule()).registerModule(new Jdk8Module());
+
+  private final Supplier<ResponseStatusException> notFound = () -> new ResponseStatusException(HttpStatus.NOT_FOUND);
 
   ////////////////////////////// Class Methods \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 
@@ -102,11 +109,20 @@ public class BoardController {
   private final ClingoService clingoService;
   private final ClingoService clingoServiceNew;
   private final SolverProperties solverProperties;
+  private final DefaultDSLContext create;
 
   /////////////////////////////// Constructors \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 
   @Autowired
-  public BoardController(BoardRepository boardRepository, EpicRepository epicRepository, SolutionRepository solutionRepository, SprintRepository sprintRepository, TicketRepository ticketRepository, ClingoService clingoService, ClingoService clingoServiceNew, SolverProperties solverProperties) {
+  public BoardController(BoardRepository boardRepository,
+                         EpicRepository epicRepository,
+                         SolutionRepository solutionRepository,
+                         SprintRepository sprintRepository,
+                         TicketRepository ticketRepository,
+                         ClingoService clingoService,
+                         ClingoService clingoServiceNew,
+                         SolverProperties solverProperties,
+                         DefaultDSLContext create) {
     this.boardRepository = boardRepository;
     this.epicRepository = epicRepository;
     this.solutionRepository = solutionRepository;
@@ -115,6 +131,7 @@ public class BoardController {
     this.clingoService = clingoService;
     this.clingoServiceNew = clingoServiceNew;
     this.solverProperties = solverProperties;
+    this.create = create;
   }
 
   ////////////////////////////////// Methods \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -124,7 +141,7 @@ public class BoardController {
   public void updateSprint(@Valid @RequestBody SprintE sprint,
                            @PathVariable long sprintId) {
     Sprint sprint1 = sprintRepository.findById(sprintId)
-        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+        .orElseThrow(notFound);
 
     // Removing tickets is done in another endpoint
     sprint1.setName(sprint.getName());
@@ -142,7 +159,7 @@ public class BoardController {
   public ResponseEntity<SprintO> createSprint(@Valid @RequestBody SprintI sprint,
                                               @PathVariable long boardId) {
     Board board = boardRepository.findToSolve(boardId)
-        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+        .orElseThrow(notFound);
 
     Sprint s = new Sprint();
     s.setCapacity(sprint.getCapacity());
@@ -165,7 +182,7 @@ public class BoardController {
   public void deleteSprint(@PathVariable long sprintId) {
     // Why does deletion return 500...?
     sprintRepository.findById(sprintId)
-        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+        .orElseThrow(notFound);
 
     sprintRepository.deleteById(sprintId);
   }
@@ -175,10 +192,18 @@ public class BoardController {
   public void updateTicket(@Valid @RequestBody TicketI ticket,
                            @PathVariable long ticketId) {
     Ticket ticket1 = ticketRepository.findById(ticketId)
-        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+        .orElseThrow(notFound);
 
-    // Moving to another board is done in another endpoint
-    ticket1.setDescription(ticket.getDescription());
+    // Changing epic is done elsewhere
+
+    boolean notOurTicket = create.fetchExists(
+        selectOne().from(STORY_REQUESTS)
+            .where(STORY_REQUESTS.TO_TICKET_ID.eq(ticketId)));
+
+    if (!notOurTicket) {
+      ticket1.setDescription(ticket.getDescription());
+      // otherwise attempts to change the description will be ignored
+    }
 
     if (ticket1.getWeight() != ticket.getWeight()) {
       ticket1.setWeight(ticket.getWeight());
@@ -191,25 +216,34 @@ public class BoardController {
                                               @PathVariable long epicId,
                                               @PathVariable long boardId) {
     Board board = boardRepository.findById(boardId)
-        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+        .orElseThrow(notFound);
     Epic epic = epicRepository.findById(epicId)
-        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+        .orElseThrow(notFound);
     Ticket t = new Ticket(board, epic, ticket);
     t = ticketRepository.save(t);
 
     solutionRepository.save(new Solution(board, t, false));
 
-    return ResponseEntity.ok(new TicketO(t.getId(), t.getDescription(), t.getWeight(), true, epic.getId(),
-        null, new HashSet<>()));
+    return ResponseEntity.ok(new TicketO(t.getId(), t.getDescription(), t.getWeight(), epic.getId(),
+        null, new HashSet<>(), new HashSet<>(), false));
   }
 
   @DeleteMapping("/ticket/{ticketId}")
   @Transactional
   public void deleteTicket(@PathVariable long ticketId) {
 
+    boolean isInvolvedInAStoryRequest = create.fetchExists(
+        selectOne().from(STORY_REQUESTS)
+            .where(STORY_REQUESTS.TO_TICKET_ID.eq(ticketId)
+                .or(STORY_REQUESTS.FROM_TICKET_ID.eq(ticketId))));
+
+    if (isInvolvedInAStoryRequest) {
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST);
+    }
+
     // Why does deletion return 500...?
     ticketRepository.findById(ticketId)
-        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+        .orElseThrow(notFound);
 
     ticketRepository.deleteById(ticketId);
   }
@@ -220,7 +254,7 @@ public class BoardController {
     BoardO solution = useCurrentSolution(boardId);
 
     Map<Long, String> epicNames = boardRepository.findById(boardId)
-        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND))
+        .orElseThrow(notFound)
         .getEpics()
         .stream()
         .collect(toMap(BaseEntity::getId, Epic::getName));
@@ -250,14 +284,14 @@ public class BoardController {
 
   @PostMapping(value = "/board/{boardId}/csv")
   @Transactional
-  public Map<String, Integer> uploadCsv(@PathVariable long boardId, @RequestParam("file") MultipartFile file) throws Exception {
+  public Map<String, Integer> uploadCsv(@PathVariable long boardId, @RequestParam("file") MultipartFile file) {
 
     Board board = boardRepository.findById(boardId)
-        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+        .orElseThrow(notFound);
 
     // More queries
-    int[] ordinal = { board.getSprints().stream().map(Sprint::getOrdinal).max(Comparator.comparingInt(i -> i)).orElse(1) };
-    int[] priority = { board.getEpics().stream().map(Epic::getPriority).max(Comparator.comparingInt(i -> i)).orElse(1) };
+    int[] ordinal = {board.getSprints().stream().map(Sprint::getOrdinal).max(Comparator.comparingInt(i -> i)).orElse(1)};
+    int[] priority = {board.getEpics().stream().map(Epic::getPriority).max(Comparator.comparingInt(i -> i)).orElse(1)};
 
     final String SUMMARY = "Summary";
     final String STORY_POINTS = "Custom field (Story Points)";
@@ -267,7 +301,7 @@ public class BoardController {
     // The file is already in memory
     try (InputStreamReader reader = new InputStreamReader(new ByteArrayInputStream(file.getBytes()))) {
 
-      int[] errors = { 0 };
+      int[] errors = {0};
       Set<TicketCU> tickets = StreamSupport.stream(CSVFormat.DEFAULT
           .withFirstRecordAsHeader()
           .withAllowDuplicateHeaderNames() // because JIRA
@@ -352,7 +386,7 @@ public class BoardController {
     // TODO lock board?
     return out -> {
       Board board = boardRepository.findToSolve(boardId)
-          .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+          .orElseThrow(notFound);
       computePreviewSolutions(board, answer -> {
         try {
           out.write(MAPPER.writeValueAsBytes(answer));
@@ -378,7 +412,7 @@ public class BoardController {
   @Transactional
   public void acceptPreview(@PathVariable long boardId) {
     Board board = boardRepository.findById(boardId)
-        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+        .orElseThrow(notFound);
     solutionRepository.deleteRealSolution(board);
     solutionRepository.acceptPreviewSolution(board);
   }
@@ -388,7 +422,7 @@ public class BoardController {
   @Transactional
   public void deletePreview(@PathVariable long boardId) {
     Board board = boardRepository.findById(boardId)
-        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+        .orElseThrow(notFound);
     solutionRepository.deletePreviewSolution(board);
   }
 
@@ -418,7 +452,7 @@ public class BoardController {
   public void updateBoard(@PathVariable long boardId,
                           @Valid @RequestBody BoardI board) {
     Board b = boardRepository.findById(boardId)
-        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+        .orElseThrow(notFound);
     // Only metadata can be updated here
     b.setName(board.getName());
   }
@@ -443,7 +477,7 @@ public class BoardController {
   private ResponseEntity<BoardO> computeNewSolution(long boardId) {
     return ResponseEntity.ok(computeNewSolution(
         boardRepository.findToSolve(boardId)
-            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND))));
+            .orElseThrow(notFound)));
   }
 
   private void computePreviewSolutions(Board board, Function<BoardO, Boolean> answers) {
@@ -553,7 +587,7 @@ public class BoardController {
       // It's only possible that there's no solution when the board is empty.
       // In that case, there won't be any associated things.
       board = boardRepository.findById(boardId)
-          .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+          .orElseThrow(notFound);
     } else {
       board = rawAssignments.iterator().next().getBoard();
     }
@@ -570,10 +604,27 @@ public class BoardController {
         resultSprints, unassigned);
 
     // Duplicates are identical so we can discard them.
-    var ticketsById = rawAssignments.stream()
+    var assignedTicketsById = rawAssignments.stream()
         .filter(s -> s.getSprint().isPresent())
         .map(Solution::getTicket)
         .collect(Collectors.toMap(BaseEntity::getId, t -> t, (a, b) -> a));
+
+    Long[] allTicketIds = rawAssignments.stream()
+        .map(a -> a.getTicket().getId())
+        .distinct()
+        .toArray(Long[]::new);
+
+    Map<Long, List<StoryRequestsRecord>> storyRequestsbyTicketId = create.selectFrom(STORY_REQUESTS)
+        .where(STORY_REQUESTS.FROM_TICKET_ID.in(allTicketIds))
+        .stream()
+        .collect(groupingBy(StoryRequestsRecord::getFromTicketId));
+
+    Set<Long> ticketsBlockingCrossBoard = create.select(STORY_REQUESTS.TO_TICKET_ID)
+        .from(STORY_REQUESTS)
+        .where(STORY_REQUESTS.TO_TICKET_ID.in(allTicketIds))
+        .stream()
+        .map(r -> r.get(STORY_REQUESTS.TO_TICKET_ID))
+        .collect(Collectors.toSet());
 
     Map<Long, List<Long>> assignments = rawAssignments.stream()
         .filter(s -> s.getSprint().isPresent())
@@ -593,11 +644,13 @@ public class BoardController {
         .sorted(Comparator.comparingInt(Sprint::getOrdinal))
         .map(sprint -> new SprintO(sprint.getId(), sprint.getName(), sprint.getGoal(), sprint.getCapacity(),
             assignments.getOrDefault(sprint.getId(), Collections.emptyList()).stream()
-            .map(ticketsById::get)
-            .map(t -> t.toModel(pins.get(t.getId()), deps.getOrDefault(t.getId(), new HashSet<>())))
-            // Ensure ordering remains stable
-            .sorted(Comparator.comparingLong(TicketO::getId))
-            .collect(toList())))
+                .map(assignedTicketsById::get)
+                .map(t -> t.toModel(pins.get(t.getId()), deps.getOrDefault(t.getId(), new HashSet<>()),
+                    storyRequestsbyTicketId.getOrDefault(t.getId(), new ArrayList<>()),
+                    ticketsBlockingCrossBoard.contains(t.getId())))
+                // Ensure ordering remains stable
+                .sorted(Comparator.comparingLong(TicketO::getId))
+                .collect(toList())))
         .collect(toList());
 
     resultSprints.addAll(sprints);
@@ -605,7 +658,9 @@ public class BoardController {
     rawAssignments.stream()
         .filter(s -> s.getSprint().isEmpty())
         .map(Solution::getTicket)
-        .map(t -> t.toModel(pins.get(t.getId()), deps.getOrDefault(t.getId(), new HashSet<>())))
+        .map(t -> t.toModel(pins.get(t.getId()), deps.getOrDefault(t.getId(), new HashSet<>()),
+            storyRequestsbyTicketId.getOrDefault(t.getId(), new ArrayList<>()),
+            ticketsBlockingCrossBoard.contains(t.getId())))
         .sorted(Comparator.comparingLong(TicketO::getId))
         .forEach(unassigned::add);
 

@@ -15,7 +15,6 @@ public interface SolutionRepository extends JpaRepository<Solution, Long> {
       "JOIN FETCH s.board b " +
       "LEFT JOIN FETCH s.sprint " +
       "JOIN FETCH s.ticket t " +
-      "LEFT JOIN FETCH t.origin " +
       "LEFT JOIN FETCH t.board " +
       "LEFT JOIN FETCH b.owner " +
       "WHERE s.board.id = ?1 and s.preview = false")
@@ -26,7 +25,6 @@ public interface SolutionRepository extends JpaRepository<Solution, Long> {
       "JOIN FETCH s.board b " +
       "LEFT JOIN FETCH s.sprint " +
       "JOIN FETCH s.ticket t " +
-      "LEFT JOIN FETCH t.origin " +
       "LEFT JOIN FETCH t.board " +
       "LEFT JOIN FETCH b.owner " +
       "WHERE s.board.id = ?1 and s.preview = true")

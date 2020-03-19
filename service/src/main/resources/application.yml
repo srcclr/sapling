@@ -12,6 +12,8 @@ spring:
       request-timeout: 35s
       # clingo's time limit must be <= this.
       # some buffer added for the remote server as well.
+  jooq:
+    sql-dialect: postgres
 
 solver:
   timeout: 30
