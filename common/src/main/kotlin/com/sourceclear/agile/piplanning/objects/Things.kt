@@ -56,7 +56,7 @@ data class TicketO(
 data class StoryRequestO(
     val id: Long,
     val boardId: Long, // TODO story, epic, board names?
-    val storyId: Long,
+    val storyId: Long?,
     val storyDescription: String,
     val storyPoints: Int,
     val storyEpicId: Long,
