@@ -32,6 +32,19 @@ Created <database> as DATABASE_URL
 Use heroku addons:docs heroku-postgresql to view documentation
 ```
 
+Initialize it:
+
+```sh
+heroku psql -a sapling-planning
+```
+
+```sql
+CREATE SCHEMA agile AUTHORIZATION <username>;
+ALTER ROLE <username> SET search_path TO agile;
+```
+
+Deploy and configure the server:
+
 ```sh
 heroku config -a sapling-planning
 ```
