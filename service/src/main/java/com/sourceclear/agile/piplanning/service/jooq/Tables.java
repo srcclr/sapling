@@ -9,6 +9,7 @@ import com.sourceclear.agile.piplanning.service.jooq.tables.Boards;
 import com.sourceclear.agile.piplanning.service.jooq.tables.Epics;
 import com.sourceclear.agile.piplanning.service.jooq.tables.FlywaySchemaHistory;
 import com.sourceclear.agile.piplanning.service.jooq.tables.InvalidatedTokens;
+import com.sourceclear.agile.piplanning.service.jooq.tables.JiraCsv;
 import com.sourceclear.agile.piplanning.service.jooq.tables.Memberships;
 import com.sourceclear.agile.piplanning.service.jooq.tables.Solutions;
 import com.sourceclear.agile.piplanning.service.jooq.tables.Sprints;
@@ -49,6 +50,11 @@ public class Tables {
      * The table <code>agile.invalidated_tokens</code>.
      */
     public static final InvalidatedTokens INVALIDATED_TOKENS = InvalidatedTokens.INVALIDATED_TOKENS;
+
+    /**
+     * The table <code>agile.jira_csv</code>.
+     */
+    public static final JiraCsv JIRA_CSV = JiraCsv.JIRA_CSV;
 
     /**
      * The table <code>agile.memberships</code>.

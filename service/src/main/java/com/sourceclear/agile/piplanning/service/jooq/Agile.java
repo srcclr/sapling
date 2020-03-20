@@ -9,6 +9,7 @@ import com.sourceclear.agile.piplanning.service.jooq.tables.Boards;
 import com.sourceclear.agile.piplanning.service.jooq.tables.Epics;
 import com.sourceclear.agile.piplanning.service.jooq.tables.FlywaySchemaHistory;
 import com.sourceclear.agile.piplanning.service.jooq.tables.InvalidatedTokens;
+import com.sourceclear.agile.piplanning.service.jooq.tables.JiraCsv;
 import com.sourceclear.agile.piplanning.service.jooq.tables.Memberships;
 import com.sourceclear.agile.piplanning.service.jooq.tables.Solutions;
 import com.sourceclear.agile.piplanning.service.jooq.tables.Sprints;
@@ -33,7 +34,7 @@ import org.jooq.impl.SchemaImpl;
 @SuppressWarnings({ "all", "unchecked", "rawtypes" })
 public class Agile extends SchemaImpl {
 
-    private static final long serialVersionUID = 222783036;
+    private static final long serialVersionUID = 2101389063;
 
     /**
      * The reference instance of <code>agile</code>
@@ -64,6 +65,11 @@ public class Agile extends SchemaImpl {
      * The table <code>agile.invalidated_tokens</code>.
      */
     public final InvalidatedTokens INVALIDATED_TOKENS = InvalidatedTokens.INVALIDATED_TOKENS;
+
+    /**
+     * The table <code>agile.jira_csv</code>.
+     */
+    public final JiraCsv JIRA_CSV = JiraCsv.JIRA_CSV;
 
     /**
      * The table <code>agile.memberships</code>.
@@ -141,6 +147,7 @@ public class Agile extends SchemaImpl {
             Epics.EPICS,
             FlywaySchemaHistory.FLYWAY_SCHEMA_HISTORY,
             InvalidatedTokens.INVALIDATED_TOKENS,
+            JiraCsv.JIRA_CSV,
             Memberships.MEMBERSHIPS,
             Solutions.SOLUTIONS,
             Sprints.SPRINTS,

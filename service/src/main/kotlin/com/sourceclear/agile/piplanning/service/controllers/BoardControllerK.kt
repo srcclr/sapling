@@ -3,9 +3,6 @@
  */
 package com.sourceclear.agile.piplanning.service.controllers
 
-import com.sourceclear.agile.piplanning.service.entities.Dependency
-import com.sourceclear.agile.piplanning.service.entities.Epic
-import com.sourceclear.agile.piplanning.service.entities.Pin
 import com.sourceclear.agile.piplanning.objects.DepI
 import com.sourceclear.agile.piplanning.objects.EpicI
 import com.sourceclear.agile.piplanning.objects.EpicO
@@ -13,12 +10,14 @@ import com.sourceclear.agile.piplanning.objects.PinI
 import com.sourceclear.agile.piplanning.objects.SRState.*
 import com.sourceclear.agile.piplanning.objects.StateChangeInput
 import com.sourceclear.agile.piplanning.objects.StoryRequestI
+import com.sourceclear.agile.piplanning.service.configs.Exceptions.*
+import com.sourceclear.agile.piplanning.service.entities.Dependency
+import com.sourceclear.agile.piplanning.service.entities.Epic
+import com.sourceclear.agile.piplanning.service.entities.Pin
 import com.sourceclear.agile.piplanning.service.entities.login.User
 import com.sourceclear.agile.piplanning.service.jooq.tables.Boards.BOARDS
-import com.sourceclear.agile.piplanning.service.jooq.tables.Epics
 import com.sourceclear.agile.piplanning.service.jooq.tables.Epics.EPICS
 import com.sourceclear.agile.piplanning.service.jooq.tables.Solutions.SOLUTIONS
-import com.sourceclear.agile.piplanning.service.jooq.tables.StoryRequests
 import com.sourceclear.agile.piplanning.service.jooq.tables.StoryRequests.STORY_REQUESTS
 import com.sourceclear.agile.piplanning.service.jooq.tables.Tickets.TICKETS
 import com.sourceclear.agile.piplanning.service.jooq.tables.records.BoardsRecord
@@ -30,7 +29,6 @@ import com.sourceclear.agile.piplanning.service.repositories.TicketRepository
 import org.jooq.impl.DSL
 import org.jooq.impl.DefaultDSLContext
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.security.core.annotation.AuthenticationPrincipal
 import org.springframework.transaction.annotation.Transactional
@@ -41,7 +39,6 @@ import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.PutMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RestController
-import org.springframework.web.server.ResponseStatusException
 import javax.validation.Valid
 
 @RestController
@@ -61,14 +58,14 @@ open class BoardControllerK @Autowired constructor(
   @GetMapping("/epic/{epicId}")
   @Transactional(readOnly = true)
   open fun getEpic(@PathVariable epicId: Long): ResponseEntity<EpicO> {
-    val e = epicRepository.findById(epicId).orElseThrow { ResponseStatusException(HttpStatus.NOT_FOUND) }!!
+    val e = epicRepository.findById(epicId).orElseThrow(notFound)!!
     return ResponseEntity.ok(EpicO(e.id, e.name, e.priority))
   }
 
   @GetMapping("/board/{boardId}/epics")
   @Transactional
   open fun listEpics(@PathVariable boardId: Long): List<EpicO> {
-    val b = boardRepository.findById(boardId).orElseThrow { ResponseStatusException(HttpStatus.NOT_FOUND) }!!
+    val b = boardRepository.findById(boardId).orElseThrow(notFound)!!
     return b.epics
         // ensure ordering is stable if same priority
         .sortedWith(compareBy({ it.priority }, { it.id }))
@@ -78,7 +75,7 @@ open class BoardControllerK @Autowired constructor(
   @PostMapping("/board/{boardId}/epics")
   @Transactional
   open fun createEpic(@PathVariable boardId: Long, @Valid @RequestBody epic: EpicI): EpicO {
-    val b = boardRepository.findById(boardId).orElseThrow { ResponseStatusException(HttpStatus.NOT_FOUND) }!!
+    val b = boardRepository.findById(boardId).orElseThrow(notFound)!!
     val e = epicRepository.save(Epic(epic.name, epic.priority, b))
     return EpicO(e.id, e.name, e.priority)
   }
@@ -86,7 +83,7 @@ open class BoardControllerK @Autowired constructor(
   @PutMapping("/epic/{epicId}")
   @Transactional
   open fun updateEpic(@PathVariable epicId: Long, @Valid @RequestBody epic: EpicI) {
-    val e = epicRepository.findById(epicId).orElseThrow { ResponseStatusException(HttpStatus.NOT_FOUND) }!!
+    val e = epicRepository.findById(epicId).orElseThrow(notFound)!!
     e.name = epic.name
     e.priority = epic.priority
   }
@@ -105,7 +102,7 @@ open class BoardControllerK @Autowired constructor(
                 .where(EPICS.ID.eq(epicId)))
 
     if (hasTicketInvolvedInAStoryRequest) {
-      throw ResponseStatusException(HttpStatus.BAD_REQUEST)
+      throw badRequest
     }
 
     epicRepository.deleteById(epicId)
@@ -117,8 +114,8 @@ open class BoardControllerK @Autowired constructor(
   @PutMapping("/epic/{epicId}/ticket/{ticketId}")
   @Transactional
   open fun moveTicket(@PathVariable epicId: Long, @PathVariable ticketId: Long) {
-    val e = epicRepository.findById(epicId).orElseThrow { ResponseStatusException(HttpStatus.NOT_FOUND) }!!
-    val t = ticketRepository.findById(ticketId).orElseThrow { ResponseStatusException(HttpStatus.NOT_FOUND) }!!
+    val e = epicRepository.findById(epicId).orElseThrow(notFound)!!
+    val t = ticketRepository.findById(ticketId).orElseThrow(notFound)!!
     t.epic = e
   }
 
@@ -129,9 +126,9 @@ open class BoardControllerK @Autowired constructor(
   @PostMapping("/board/{boardId}/pins")
   @Transactional
   open fun createPin(@PathVariable boardId: Long, @Valid @RequestBody pin: PinI) {
-    val b = boardRepository.findWithPins(boardId).orElseThrow { ResponseStatusException(HttpStatus.NOT_FOUND) }!!
-    val s = sprintRepository.findById(pin.sprintId).orElseThrow { ResponseStatusException(HttpStatus.NOT_FOUND) }!!
-    val t = ticketRepository.findById(pin.ticketId).orElseThrow { ResponseStatusException(HttpStatus.NOT_FOUND) }!!
+    val b = boardRepository.findWithPins(boardId).orElseThrow(notFound)!!
+    val s = sprintRepository.findById(pin.sprintId).orElseThrow(notFound)!!
+    val t = ticketRepository.findById(pin.ticketId).orElseThrow(notFound)!!
     b.pins.removeIf { it.ticketId == pin.ticketId }
     b.pins.add(Pin(s.id, t.id))
   }
@@ -139,7 +136,7 @@ open class BoardControllerK @Autowired constructor(
   @DeleteMapping("/board/{boardId}/pins")
   @Transactional
   open fun deletePin(@PathVariable boardId: Long, @Valid @RequestBody pin: PinI) {
-    val b = boardRepository.findWithPins(boardId).orElseThrow { ResponseStatusException(HttpStatus.NOT_FOUND) }!!
+    val b = boardRepository.findWithPins(boardId).orElseThrow(notFound)!!
     b.pins = b.pins.filterNotTo(HashSet()) { it.ticketId == pin.ticketId }
   }
 
@@ -151,9 +148,9 @@ open class BoardControllerK @Autowired constructor(
   @Transactional
   open fun createDep(@PathVariable boardId: Long, @Valid @RequestBody dep: DepI) {
     if (dep.fromTicketId == dep.toTicketId) {
-      throw ResponseStatusException(HttpStatus.BAD_REQUEST);
+      throw badRequest;
     }
-    val b = boardRepository.findWithDeps(boardId).orElseThrow { ResponseStatusException(HttpStatus.NOT_FOUND) }!!
+    val b = boardRepository.findWithDeps(boardId).orElseThrow(notFound)!!
     if (b.deps.none { it.fromTicketId == dep.fromTicketId && it.toTicketId == dep.toTicketId }) {
       b.deps.add(Dependency(dep.fromTicketId, dep.toTicketId))
     }
@@ -162,14 +159,9 @@ open class BoardControllerK @Autowired constructor(
   @DeleteMapping("/board/{boardId}/dependencies")
   @Transactional
   open fun deleteDep(@PathVariable boardId: Long, @Valid @RequestBody dep: DepI) {
-    val b = boardRepository.findWithDeps(boardId).orElseThrow { ResponseStatusException(HttpStatus.NOT_FOUND) }!!
+    val b = boardRepository.findWithDeps(boardId).orElseThrow(notFound)!!
     b.deps.remove(Dependency(dep.fromTicketId, dep.toTicketId))
   }
-
-  private val notFound = ResponseStatusException(HttpStatus.NOT_FOUND)
-  private val badRequest = ResponseStatusException(HttpStatus.BAD_REQUEST)
-  private val oopsieWoopsie = ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR)
-  private val unauthorized = ResponseStatusException(HttpStatus.UNAUTHORIZED)
 
   //
   // Story requests

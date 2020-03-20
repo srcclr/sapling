@@ -15,7 +15,7 @@ data class TicketCD(
 data class TicketCU(
     val summary: String,
     val points: Int,
-    val sprint: String,
+    val sprint: Optional<String>, // Java
     val epic: String)
 
 data class BoardI(val name: String)

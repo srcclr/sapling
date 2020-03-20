@@ -14,6 +14,7 @@ spring:
       # some buffer added for the remote server as well.
   jooq:
     sql-dialect: postgres
+  servlet.multipart.max-file-size: 10MB
 
 solver:
   timeout: 30

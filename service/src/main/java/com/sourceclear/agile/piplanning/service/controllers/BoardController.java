@@ -18,6 +18,7 @@ import com.sourceclear.agile.piplanning.objects.TicketCU;
 import com.sourceclear.agile.piplanning.objects.TicketI;
 import com.sourceclear.agile.piplanning.objects.TicketO;
 import com.sourceclear.agile.piplanning.service.components.SolverProperties;
+import com.sourceclear.agile.piplanning.service.configs.Exceptions;
 import com.sourceclear.agile.piplanning.service.entities.BaseEntity;
 import com.sourceclear.agile.piplanning.service.entities.Board;
 import com.sourceclear.agile.piplanning.service.entities.Dependency;
@@ -34,15 +35,17 @@ import com.sourceclear.agile.piplanning.service.repositories.SolutionRepository;
 import com.sourceclear.agile.piplanning.service.repositories.SprintRepository;
 import com.sourceclear.agile.piplanning.service.repositories.TicketRepository;
 import com.sourceclear.agile.piplanning.service.services.ClingoService;
+import kotlin.Pair;
 import org.apache.commons.csv.CSVFormat;
+import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVPrinter;
+import org.apache.commons.csv.CSVRecord;
 import org.apache.commons.lang3.StringUtils;
 import org.jetbrains.annotations.NotNull;
 import org.jooq.impl.DefaultDSLContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.transaction.annotation.Transactional;
@@ -56,7 +59,6 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
-import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 
 import javax.servlet.http.HttpServletResponse;
@@ -66,23 +68,32 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
-import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
+import static com.sourceclear.agile.piplanning.service.configs.Exceptions.Try;
+import static com.sourceclear.agile.piplanning.service.configs.Exceptions.badRequest;
+import static com.sourceclear.agile.piplanning.service.configs.Exceptions.internalServerError;
+import static com.sourceclear.agile.piplanning.service.configs.Exceptions.notAcceptable;
+import static com.sourceclear.agile.piplanning.service.configs.Exceptions.notFound;
+import static com.sourceclear.agile.piplanning.service.jooq.tables.JiraCsv.JIRA_CSV;
 import static com.sourceclear.agile.piplanning.service.jooq.tables.StoryRequests.STORY_REQUESTS;
 import static java.util.stream.Collectors.groupingBy;
 import static java.util.stream.Collectors.mapping;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
+import static org.jooq.impl.DSL.mergeInto;
+import static org.jooq.impl.DSL.select;
 import static org.jooq.impl.DSL.selectOne;
 
 @RestController
@@ -94,8 +105,6 @@ public class BoardController {
 
   private static final ObjectMapper MAPPER = new ObjectMapper()
       .registerModule(new KotlinModule()).registerModule(new Jdk8Module());
-
-  private final Supplier<ResponseStatusException> notFound = () -> new ResponseStatusException(HttpStatus.NOT_FOUND);
 
   ////////////////////////////// Class Methods \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 
@@ -238,7 +247,7 @@ public class BoardController {
                 .or(STORY_REQUESTS.FROM_TICKET_ID.eq(ticketId))));
 
     if (isInvolvedInAStoryRequest) {
-      throw new ResponseStatusException(HttpStatus.BAD_REQUEST);
+      throw badRequest;
     }
 
     // Why does deletion return 500...?
@@ -248,34 +257,78 @@ public class BoardController {
     ticketRepository.deleteById(ticketId);
   }
 
+  private static final String INPUT_ISSUE_KEY = "Issue key";
+  private static final String INPUT_SUMMARY = "Summary";
+  private static final String INPUT_STORY_POINTS = "Custom field (Story Points)";
+  private static final String INPUT_SPRINT = "Sprint";
+  private static final String INPUT_EPIC = "Custom field (Epic Link)";
+
+  private static final String OUTPUT_SUMMARY = "Summary";
+  private static final String OUTPUT_STORY_POINTS = "Story Points";
+  private static final String OUTPUT_SPRINT = "Sprint";
+  private static final String OUTPUT_EPIC = "Epic";
+
+  @GetMapping(value = "/board/{boardId}/csv/jira", produces = "text/csv")
+  @Transactional(readOnly = true)
+  public void getCsvJira(@PathVariable long boardId, HttpServletResponse response) throws Exception {
+    List<TicketCD> result = loadCsvOutput(boardId);
+
+    // Grab the CSV file we saved and mutate it
+    String csv = create.fetchOne(select(JIRA_CSV.CSV).from(JIRA_CSV).where(JIRA_CSV.BOARD_ID.eq(boardId))).component1();
+    if (csv == null) {
+      throw badRequest;
+    }
+
+    Map<String, Map<String, String>> records;
+    try (InputStreamReader reader = new InputStreamReader(new ByteArrayInputStream(csv.getBytes()))) {
+      records = parseCsv(reader).getRecords().stream()
+          // Deal with mutable maps
+          .map(CSVRecord::toMap)
+          .collect(toMap(r -> r.get(INPUT_ISSUE_KEY), r -> r,
+              // Assume the keys are unique and not crash, i.e. garbage in, garbage out
+              (a, b) -> b));
+    }
+
+    for (TicketCD r : result) {
+      String summary = r.getSummary();
+      var key = splitIssueKey(summary);
+      if (key.isPresent()) {
+        String issueKey = key.get().getFirst();
+        if (records.containsKey(issueKey)) {
+          Map<String, String> record = records.get(issueKey);
+          // Read using the input columns
+          record.put(INPUT_EPIC, r.getEpic());
+          record.put(INPUT_SUMMARY, key.get().getSecond());
+          record.put(INPUT_STORY_POINTS, Integer.toString(r.getPoints()));
+          record.put(INPUT_SPRINT, r.getSprint());
+          // if the same key appears in more than one ticket, clobber
+        } // otherwise drop silently
+      } // otherwise drop silently
+    }
+
+    if (records.isEmpty()) {
+      return;
+    }
+
+    String[] header = records.values().iterator().next().keySet().toArray(new String[]{});
+    try (BufferedWriter out = new BufferedWriter(response.getWriter());
+         CSVPrinter printer = new CSVPrinter(out, CSVFormat.DEFAULT.withHeader(header))) {
+      for (Map<String, String> r : records.values()) {
+        // Make sure ordering is preserved
+        Object[] values = Arrays.stream(header).map(r::get).toArray();
+        printer.printRecord(values);
+      }
+    }
+  }
+
   @GetMapping(value = "/board/{boardId}/csv", produces = "text/csv")
   @Transactional(readOnly = true)
   public void getCsv(@PathVariable long boardId, HttpServletResponse response) throws Exception {
-    BoardO solution = useCurrentSolution(boardId);
-
-    Map<Long, String> epicNames = boardRepository.findById(boardId)
-        .orElseThrow(notFound)
-        .getEpics()
-        .stream()
-        .collect(toMap(BaseEntity::getId, Epic::getName));
-
-    List<TicketCD> result = Stream.of(solution).flatMap(so ->
-        Stream.concat(
-            so.getSprints().stream().flatMap(s ->
-                s.getTickets().stream().map(t ->
-                    new TicketCD(t.getDescription(), t.getWeight(), s.getName(), epicNames.get(t.getEpic())))),
-            so.getUnassigned().stream().map(t ->
-                new TicketCD(t.getDescription(), t.getWeight(), "unassigned", epicNames.get(t.getEpic())))
-        )).collect(Collectors.toList());
-
-    final String SUMMARY = "Summary";
-    final String STORY_POINTS = "Story Points";
-    final String SPRINT = "Sprint";
-    final String EPIC = "Epic";
+    List<TicketCD> result = loadCsvOutput(boardId);
 
     try (BufferedWriter out = new BufferedWriter(response.getWriter());
-         final CSVPrinter printer = new CSVPrinter(out, CSVFormat.DEFAULT
-             .withHeader(SUMMARY, STORY_POINTS, SPRINT, EPIC))) {
+         CSVPrinter printer = new CSVPrinter(out, CSVFormat.DEFAULT
+             .withHeader(OUTPUT_SUMMARY, OUTPUT_STORY_POINTS, OUTPUT_SPRINT, OUTPUT_EPIC))) {
       for (TicketCD r : result) {
         printer.printRecord(r.getSummary(), r.getPoints(), r.getSprint(), r.getEpic());
       }
@@ -284,81 +337,22 @@ public class BoardController {
 
   @PostMapping(value = "/board/{boardId}/csv")
   @Transactional
-  public Map<String, Integer> uploadCsv(@PathVariable long boardId, @RequestParam("file") MultipartFile file) {
-
-    Board board = boardRepository.findById(boardId)
-        .orElseThrow(notFound);
-
-    // More queries
-    int[] ordinal = {board.getSprints().stream().map(Sprint::getOrdinal).max(Comparator.comparingInt(i -> i)).orElse(1)};
-    int[] priority = {board.getEpics().stream().map(Epic::getPriority).max(Comparator.comparingInt(i -> i)).orElse(1)};
-
-    final String SUMMARY = "Summary";
-    final String STORY_POINTS = "Custom field (Story Points)";
-    final String SPRINT = "Sprint";
-    final String EPIC = "Custom field (Epic Link)";
-
+  public Map<String, Integer> uploadCsv(@PathVariable long boardId, @RequestParam("file") MultipartFile file) throws IOException {
     // The file is already in memory
-    try (InputStreamReader reader = new InputStreamReader(new ByteArrayInputStream(file.getBytes()))) {
+    return importCsv(file.getBytes(), boardId, false);
+  }
 
-      int[] errors = {0};
-      Set<TicketCU> tickets = StreamSupport.stream(CSVFormat.DEFAULT
-          .withFirstRecordAsHeader()
-          .withAllowDuplicateHeaderNames() // because JIRA
-          .withRecordSeparator(System.lineSeparator())
-          .parse(reader).spliterator(), false)
-          .flatMap(r -> {
-            try {
-              // Do this manually because inputs are probably barely CSV and need fiddling with
-              return Stream.of(
-                  new TicketCU(
-                      r.get(SUMMARY),
-                      // JIRA...
-                      Math.round(Float.parseFloat(StringUtils.defaultIfBlank(r.get(STORY_POINTS), "0"))),
-                      r.get(SPRINT),
-                      r.get(EPIC)));
-            } catch (Exception e) {
-              LOGGER.trace("failed to parse csv record", e);
-              ++errors[0];
-              return Stream.of();
-            }
-          }).collect(Collectors.toSet());
+  @PostMapping(value = "/board/{boardId}/csv/jira")
+  @Transactional
+  public Map<String, Integer> uploadCsvJira(@PathVariable long boardId, @RequestParam("file") MultipartFile file) throws IOException {
 
-      // Epics are given arbitrary but differing priorities
-      var epics = tickets.stream().map(TicketCU::getEpic)
-          .distinct()
-          .collect(Collectors.toMap(e -> e, e -> new Epic(e, priority[0]++, board)));
-      board.getEpics().addAll(epics.values());
+    // Save the CSV file separately
+    create.mergeInto(JIRA_CSV, JIRA_CSV.BOARD_ID, JIRA_CSV.CSV)
+        .values(boardId, new String(file.getBytes()))
+        .execute();
 
-      // Sprints are ordered similarly and given an arbitrary capacity
-      var sprints = tickets.stream().map(TicketCU::getSprint)
-          .distinct()
-          .map(s -> new Sprint(board, s, "", 20, ordinal[0]++))
-          .collect(Collectors.toList());
-      board.getSprints().addAll(sprints);
-
-      // Silently drop tickets with invalid epics
-      List<Ticket> tix = tickets.stream().filter(t -> epics.containsKey(t.getEpic()))
-          .map(t -> new Ticket(board, epics.get(t.getEpic()), t))
-          .collect(toList());
-
-      board.getTickets().addAll(tix);
-
-      // Make sure they show up as unassigned
-      epicRepository.saveAll(epics.values());
-      ticketRepository.saveAll(tix); // or Hibernate complains
-      solutionRepository.saveAll(tix.stream().map(t -> new Solution(board, t, false))::iterator);
-
-      LOGGER.debug("added {} epics, {} sprints, {} tickets; {} failed to parse",
-          epics.size(), sprints.size(), tickets.size(), errors[0]);
-
-      return Map.of("epics", epics.size(), "sprints", sprints.size(), "tickets", tickets.size(), "errors", errors[0]);
-    } catch (IllegalArgumentException e) {
-      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage());
-    } catch (Exception e) {
-      LOGGER.debug("failed to import", e);
-      throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR);
-    }
+    // Do exactly the same thing but ensure the issue key is present
+    return importCsv(file.getBytes(), boardId, true);
   }
 
   @GetMapping("/board/{boardId}")
@@ -499,7 +493,7 @@ public class BoardController {
     } catch (Exception e) {
       LOGGER.error("Failed to run solver {}",
           solverProperties.isRemote() ? "remotely" : "locally", e);
-      throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR);
+      throw internalServerError;
     }
   }
 
@@ -546,7 +540,7 @@ public class BoardController {
       }
     } catch (Exception e) {
       LOGGER.error("Failed to run solver", e);
-      throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR);
+      throw internalServerError;
     }
 
     checkUnsat(soln);
@@ -568,7 +562,7 @@ public class BoardController {
   private void checkUnsat(Set<Soln> soln) {
     if (soln.isEmpty()) {
       // Unsat is still possible because of pins or having no tickets
-      throw new ResponseStatusException(HttpStatus.NOT_ACCEPTABLE);
+      throw notAcceptable;
     }
   }
 
@@ -665,6 +659,112 @@ public class BoardController {
         .forEach(unassigned::add);
 
     return result;
+  }
+
+  private Map<String, Integer> importCsv(byte[] csv, long boardId, boolean keepIssueKey) {
+
+    Board board = boardRepository.findById(boardId)
+        .orElseThrow(notFound);
+
+    // More queries
+    int[] ordinal = {board.getSprints().stream().map(Sprint::getOrdinal).max(Comparator.comparingInt(i -> i)).orElse(1)};
+    int[] priority = {board.getEpics().stream().map(Epic::getPriority).max(Comparator.comparingInt(i -> i)).orElse(1)};
+
+    try (InputStreamReader reader = new InputStreamReader(new ByteArrayInputStream(csv))) {
+
+      int[] errors = {0};
+      Set<TicketCU> tickets = StreamSupport.stream(parseCsv(reader).spliterator(), false)
+          .flatMap(r -> {
+            try {
+              // Do this manually because inputs are probably barely CSV and need fiddling with
+              return Stream.of(
+                  new TicketCU(
+                      (keepIssueKey ? r.get(INPUT_ISSUE_KEY) + " " : "") + r.get(INPUT_SUMMARY),
+                      // JIRA...
+                      Math.round(Float.parseFloat(StringUtils.defaultIfBlank(r.get(INPUT_STORY_POINTS), "0"))),
+                      Try(() -> Optional.of(r.get(INPUT_SPRINT)), Optional.empty()),
+                      r.get(INPUT_EPIC)));
+            } catch (Exception e) {
+              LOGGER.debug("failed to parse csv record", e);
+              ++errors[0];
+              return Stream.of();
+            }
+          }).collect(Collectors.toSet());
+
+      // Epics are given arbitrary but differing priorities
+      var epics = tickets.stream().map(TicketCU::getEpic)
+          .distinct()
+          .collect(Collectors.toMap(e -> e, e -> new Epic(e, priority[0]++, board)));
+      board.getEpics().addAll(epics.values());
+
+      // Sprints are ordered similarly and given an arbitrary capacity
+      var sprints = tickets.stream().map(TicketCU::getSprint)
+          .flatMap(Optional::stream)
+          .distinct()
+          .map(s -> new Sprint(board, s, "", 20, ordinal[0]++))
+          .collect(Collectors.toList());
+      board.getSprints().addAll(sprints);
+
+      // Silently drop tickets with invalid epics
+      List<Ticket> tix = tickets.stream().filter(t -> epics.containsKey(t.getEpic()))
+          .map(t -> new Ticket(board, epics.get(t.getEpic()), t))
+          .collect(toList());
+
+      board.getTickets().addAll(tix);
+
+      // Make sure they show up as unassigned
+      epicRepository.saveAll(epics.values());
+      ticketRepository.saveAll(tix); // or Hibernate complains
+      solutionRepository.saveAll(tix.stream().map(t -> new Solution(board, t, false))::iterator);
+
+      LOGGER.debug("added {} epics, {} sprints, {} tickets; {} failed to parse",
+          epics.size(), sprints.size(), tickets.size(), errors[0]);
+
+      return Map.of("epics", epics.size(), "sprints", sprints.size(), "tickets", tickets.size(), "errors", errors[0]);
+    } catch (IllegalArgumentException e) {
+      throw badRequest.apply(e.getMessage());
+    } catch (Exception e) {
+      LOGGER.debug("failed to import", e);
+      throw internalServerError;
+    }
+  }
+
+  private static CSVParser parseCsv(InputStreamReader reader) throws IOException {
+    return CSVFormat.DEFAULT
+        .withFirstRecordAsHeader()
+        .withAllowDuplicateHeaderNames() // because JIRA
+        .withRecordSeparator(System.lineSeparator())
+        .parse(reader);
+  }
+
+  private List<TicketCD> loadCsvOutput(@PathVariable long boardId) {
+    BoardO solution = useCurrentSolution(boardId);
+
+    Map<Long, String> epicNames = boardRepository.findById(boardId)
+        .orElseThrow(notFound)
+        .getEpics()
+        .stream()
+        .collect(toMap(BaseEntity::getId, Epic::getName));
+
+    return Stream.of(solution).flatMap(so ->
+        Stream.concat(
+            so.getSprints().stream().flatMap(s ->
+                s.getTickets().stream().map(t ->
+                    new TicketCD(t.getDescription(), t.getWeight(), s.getName(), epicNames.get(t.getEpic())))),
+            so.getUnassigned().stream().map(t ->
+                new TicketCD(t.getDescription(), t.getWeight(), "unassigned", epicNames.get(t.getEpic())))
+        )).collect(Collectors.toList());
+  }
+
+  public static Optional<Pair<String, String>> splitIssueKey(String text) {
+    String[] split = text.split(" ");
+    if (split.length > 0) {
+      String issueKey = split[0];
+      String rest = Arrays.stream(split).skip(1).collect(Collectors.joining(" "));
+      return Optional.of(new Pair<>(issueKey, rest));
+    } else {
+      return Optional.empty();
+    }
   }
 
   //---------------------------- Property Methods -----------------------------
