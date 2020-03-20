@@ -72,6 +72,7 @@ public class Ticket extends BaseEntity {
     Set<StoryRequestO> requests = storyRequests.stream()
         .map(s -> new StoryRequestO(
             s.getId(),
+            s.getState(),
             s.getToBoardId(),
             s.getToTicketId(),
             s.getToTicketDescription(),

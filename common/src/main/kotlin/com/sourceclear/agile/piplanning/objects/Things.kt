@@ -50,11 +50,9 @@ data class TicketO(
     val crossBoardDependents: Boolean
 )
 
-/**
- * Should subsume [StoryRequestI]
- */
 data class StoryRequestO(
     val id: Long,
+    val state: String,
     val boardId: Long, // TODO story, epic, board names?
     val storyId: Long?,
     val storyDescription: String,
