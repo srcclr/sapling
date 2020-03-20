@@ -80,10 +80,6 @@ enum class SRState {
 data class StateChangeInput(
     val notes: String)
 
-data class SprintI(
-    val name: String,
-    val capacity: Int)
-
 data class SprintE(
     val name: String,
     val goal: String,

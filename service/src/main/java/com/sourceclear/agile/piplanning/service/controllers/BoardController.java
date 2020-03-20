@@ -11,14 +11,12 @@ import com.sourceclear.agile.piplanning.objects.BoardL;
 import com.sourceclear.agile.piplanning.objects.BoardO;
 import com.sourceclear.agile.piplanning.objects.Soln;
 import com.sourceclear.agile.piplanning.objects.SprintE;
-import com.sourceclear.agile.piplanning.objects.SprintI;
 import com.sourceclear.agile.piplanning.objects.SprintO;
 import com.sourceclear.agile.piplanning.objects.TicketCD;
 import com.sourceclear.agile.piplanning.objects.TicketCU;
 import com.sourceclear.agile.piplanning.objects.TicketI;
 import com.sourceclear.agile.piplanning.objects.TicketO;
 import com.sourceclear.agile.piplanning.service.components.SolverProperties;
-import com.sourceclear.agile.piplanning.service.configs.Exceptions;
 import com.sourceclear.agile.piplanning.service.entities.BaseEntity;
 import com.sourceclear.agile.piplanning.service.entities.Board;
 import com.sourceclear.agile.piplanning.service.entities.Dependency;
@@ -165,7 +163,7 @@ public class BoardController {
 
   @PostMapping("/board/{boardId}/sprints")
   @Transactional
-  public ResponseEntity<SprintO> createSprint(@Valid @RequestBody SprintI sprint,
+  public ResponseEntity<SprintO> createSprint(@Valid @RequestBody SprintE sprint,
                                               @PathVariable long boardId) {
     Board board = boardRepository.findToSolve(boardId)
         .orElseThrow(notFound);
@@ -174,7 +172,7 @@ public class BoardController {
     s.setCapacity(sprint.getCapacity());
     s.setName(sprint.getName());
     s.setBoard(board);
-    s.setGoal("");
+    s.setGoal(sprint.getGoal());
 
     s.setOrdinal(1 + board.getSprints().stream()
         .map(Sprint::getOrdinal)
