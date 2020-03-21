@@ -96,6 +96,9 @@ data class PinI(val ticketId: Long, val sprintId: Long)
 
 data class DepI(val fromTicketId: Long, val toTicketId: Long)
 
+data class BoardD(val name: String, val sprint: Int?)
+data class CrossBoardDep(val from: BoardD, val to: BoardD)
+
 // For representing problems
 
 data class EpicP(val id: Long, val tickets: Set<TicketP>, val priority: Int)

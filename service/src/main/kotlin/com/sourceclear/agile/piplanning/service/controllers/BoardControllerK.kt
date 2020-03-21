@@ -3,6 +3,8 @@
  */
 package com.sourceclear.agile.piplanning.service.controllers
 
+import com.sourceclear.agile.piplanning.objects.BoardD
+import com.sourceclear.agile.piplanning.objects.CrossBoardDep
 import com.sourceclear.agile.piplanning.objects.DepI
 import com.sourceclear.agile.piplanning.objects.EpicI
 import com.sourceclear.agile.piplanning.objects.EpicO
@@ -18,6 +20,7 @@ import com.sourceclear.agile.piplanning.service.entities.login.User
 import com.sourceclear.agile.piplanning.service.jooq.tables.Boards.BOARDS
 import com.sourceclear.agile.piplanning.service.jooq.tables.Epics.EPICS
 import com.sourceclear.agile.piplanning.service.jooq.tables.Solutions.SOLUTIONS
+import com.sourceclear.agile.piplanning.service.jooq.tables.Sprints.SPRINTS
 import com.sourceclear.agile.piplanning.service.jooq.tables.StoryRequests.STORY_REQUESTS
 import com.sourceclear.agile.piplanning.service.jooq.tables.Tickets.TICKETS
 import com.sourceclear.agile.piplanning.service.jooq.tables.records.BoardsRecord
@@ -263,7 +266,6 @@ open class BoardControllerK @Autowired constructor(
     sol.store()
   }
 
-
   @PostMapping("/board/{boardId}/request/{requestId}/reject")
   @Transactional
   open fun rejectStoryRequest(
@@ -354,6 +356,35 @@ open class BoardControllerK @Autowired constructor(
     }
     s.notes = addToNote(s.notes, b.name, input.notes)
     s.store()
+  }
+
+  @GetMapping("/boards/dependencies")
+  @Transactional
+  open fun crossBoardDependencies(): ResponseEntity<List<CrossBoardDep>> {
+
+    val b1 = BOARDS.`as`("b1")
+    val b2 = BOARDS.`as`("b2")
+    val sr = STORY_REQUESTS.`as`("sr")
+    val s1 = SOLUTIONS.`as`("s1")
+    val s2 = SOLUTIONS.`as`("s2")
+    val sp1 = SPRINTS.`as`("sp1")
+    val sp2 = SPRINTS.`as`("sp2")
+
+    // Unfortunately we can't use onKey for the last two
+    // https://github.com/jOOQ/jOOQ/issues/7626
+    return ResponseEntity.ok(
+        create.select(b1.NAME, b2.NAME, sp1.ORDINAL, sp2.ORDINAL)
+            .from(sr
+                .join(b1).onKey(STORY_REQUESTS.FROM_BOARD_ID)
+                .join(b2).onKey(STORY_REQUESTS.TO_BOARD_ID)
+                .join(s1).on(b1.ID.eq(s1.BOARD_ID).and(sr.FROM_TICKET_ID.eq(s1.TICKET_ID)))
+                .join(s2).on(b2.ID.eq(s2.BOARD_ID).and(sr.TO_TICKET_ID.eq(s2.TICKET_ID)))
+                .leftJoin(sp1).on(s1.SPRINT_ID.eq(sp1.ID))
+                .leftJoin(sp2).on(s2.SPRINT_ID.eq(sp2.ID)))
+            .where(sr.STATE.eq(Accepted.name))
+            .fetch { (b1, b2, sp1, sp2) ->
+              CrossBoardDep(BoardD(b1, sp1), BoardD(b2, sp2))
+            })
   }
 
   private fun validateBoard(user: User, boardId: Long): BoardsRecord {

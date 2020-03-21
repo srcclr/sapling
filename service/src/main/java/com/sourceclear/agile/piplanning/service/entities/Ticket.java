@@ -4,12 +4,10 @@
 package com.sourceclear.agile.piplanning.service.entities;
 
 import com.sourceclear.agile.piplanning.objects.StoryRequestO;
+import com.sourceclear.agile.piplanning.objects.TicketCU;
 import com.sourceclear.agile.piplanning.objects.TicketI;
 import com.sourceclear.agile.piplanning.objects.TicketO;
-import com.sourceclear.agile.piplanning.objects.TicketCU;
-import com.sourceclear.agile.piplanning.service.jooq.tables.StoryRequests;
 import com.sourceclear.agile.piplanning.service.jooq.tables.records.StoryRequestsRecord;
-import org.jooq.Record;
 
 import javax.persistence.Column;
 import javax.persistence.Entity;
@@ -20,8 +18,6 @@ import javax.persistence.Table;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
-
-import static com.sourceclear.agile.piplanning.service.jooq.tables.StoryRequests.STORY_REQUESTS;
 
 @Entity
 @Table(name = "tickets")
