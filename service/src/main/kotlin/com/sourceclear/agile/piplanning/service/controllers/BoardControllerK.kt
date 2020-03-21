@@ -309,8 +309,13 @@ open class BoardControllerK @Autowired constructor(
     s.toTicketId = null
     s.store()
 
-    create.delete(TICKETS)
-        .where(TICKETS.ID.eq(ticket))
+    if (ticket != null) {
+      // If the ticket hasn't been created and the story was rejected outright
+      create.delete(TICKETS)
+          .where(TICKETS.ID.eq(ticket))
+          .execute();
+    }
+
     create.update(NOTIFICATIONS)
         .set(NOTIFICATIONS.ACKNOWLEDGED, true)
         .where(NOTIFICATIONS.STORY_REQUEST_ID.eq(requestId).and(NOTIFICATIONS.TYPE.eq(NotificationO.IncomingStoryRequest::class.simpleName)))
