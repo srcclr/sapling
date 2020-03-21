@@ -74,6 +74,7 @@ public class Ticket extends BaseEntity {
             s.getToTicketDescription(),
             s.getToTicketWeight(),
             s.getToTicketEpicId(),
+            s.getToTicketSprintId(),
             s.getNotes()))
         .collect(Collectors.toSet());
 

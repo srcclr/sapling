@@ -58,6 +58,7 @@ data class StoryRequestO(
     val storyDescription: String,
     val storyPoints: Int,
     val storyEpicId: Long,
+    val storySprintId: Long,
     val notes: String
 )
 
