@@ -11,6 +11,7 @@ import com.sourceclear.agile.piplanning.service.jooq.tables.FlywaySchemaHistory;
 import com.sourceclear.agile.piplanning.service.jooq.tables.InvalidatedTokens;
 import com.sourceclear.agile.piplanning.service.jooq.tables.JiraCsv;
 import com.sourceclear.agile.piplanning.service.jooq.tables.Memberships;
+import com.sourceclear.agile.piplanning.service.jooq.tables.Notifications;
 import com.sourceclear.agile.piplanning.service.jooq.tables.Solutions;
 import com.sourceclear.agile.piplanning.service.jooq.tables.Sprints;
 import com.sourceclear.agile.piplanning.service.jooq.tables.StoryRequests;
@@ -25,6 +26,7 @@ import com.sourceclear.agile.piplanning.service.jooq.tables.records.FlywaySchema
 import com.sourceclear.agile.piplanning.service.jooq.tables.records.InvalidatedTokensRecord;
 import com.sourceclear.agile.piplanning.service.jooq.tables.records.JiraCsvRecord;
 import com.sourceclear.agile.piplanning.service.jooq.tables.records.MembershipsRecord;
+import com.sourceclear.agile.piplanning.service.jooq.tables.records.NotificationsRecord;
 import com.sourceclear.agile.piplanning.service.jooq.tables.records.SolutionsRecord;
 import com.sourceclear.agile.piplanning.service.jooq.tables.records.SprintsRecord;
 import com.sourceclear.agile.piplanning.service.jooq.tables.records.StoryRequestsRecord;
@@ -56,6 +58,7 @@ public class Keys {
     public static final Identity<EpicsRecord, Long> IDENTITY_EPICS = Identities0.IDENTITY_EPICS;
     public static final Identity<InvalidatedTokensRecord, Long> IDENTITY_INVALIDATED_TOKENS = Identities0.IDENTITY_INVALIDATED_TOKENS;
     public static final Identity<MembershipsRecord, Long> IDENTITY_MEMBERSHIPS = Identities0.IDENTITY_MEMBERSHIPS;
+    public static final Identity<NotificationsRecord, Long> IDENTITY_NOTIFICATIONS = Identities0.IDENTITY_NOTIFICATIONS;
     public static final Identity<SolutionsRecord, Long> IDENTITY_SOLUTIONS = Identities0.IDENTITY_SOLUTIONS;
     public static final Identity<SprintsRecord, Long> IDENTITY_SPRINTS = Identities0.IDENTITY_SPRINTS;
     public static final Identity<StoryRequestsRecord, Long> IDENTITY_STORY_REQUESTS = Identities0.IDENTITY_STORY_REQUESTS;
@@ -75,6 +78,7 @@ public class Keys {
     public static final UniqueKey<JiraCsvRecord> JIRA_CSV_PKEY = UniqueKeys0.JIRA_CSV_PKEY;
     public static final UniqueKey<MembershipsRecord> MEMBERSHIPS_PKEY = UniqueKeys0.MEMBERSHIPS_PKEY;
     public static final UniqueKey<MembershipsRecord> MEMBERSHIPS_USER_ID_ACCOUNT_ID_KEY = UniqueKeys0.MEMBERSHIPS_USER_ID_ACCOUNT_ID_KEY;
+    public static final UniqueKey<NotificationsRecord> NOTIFICATIONS_PKEY = UniqueKeys0.NOTIFICATIONS_PKEY;
     public static final UniqueKey<SolutionsRecord> SOLUTIONS_BOARD_ID_TICKET_ID_SPRINT_ID_PREVIEW_KEY = UniqueKeys0.SOLUTIONS_BOARD_ID_TICKET_ID_SPRINT_ID_PREVIEW_KEY;
     public static final UniqueKey<SolutionsRecord> SOLUTIONS_PKEY = UniqueKeys0.SOLUTIONS_PKEY;
     public static final UniqueKey<SprintsRecord> SPRINTS_PKEY = UniqueKeys0.SPRINTS_PKEY;
@@ -96,6 +100,8 @@ public class Keys {
     public static final ForeignKey<JiraCsvRecord, BoardsRecord> JIRA_CSV__JIRA_CSV_BOARD_ID_FKEY = ForeignKeys0.JIRA_CSV__JIRA_CSV_BOARD_ID_FKEY;
     public static final ForeignKey<MembershipsRecord, UsersRecord> MEMBERSHIPS__MEMBERSHIPS_USER_ID_FKEY = ForeignKeys0.MEMBERSHIPS__MEMBERSHIPS_USER_ID_FKEY;
     public static final ForeignKey<MembershipsRecord, AccountsRecord> MEMBERSHIPS__MEMBERSHIPS_ACCOUNT_ID_FKEY = ForeignKeys0.MEMBERSHIPS__MEMBERSHIPS_ACCOUNT_ID_FKEY;
+    public static final ForeignKey<NotificationsRecord, BoardsRecord> NOTIFICATIONS__NOTIFICATIONS_RECIPIENT_ID_FKEY = ForeignKeys0.NOTIFICATIONS__NOTIFICATIONS_RECIPIENT_ID_FKEY;
+    public static final ForeignKey<NotificationsRecord, StoryRequestsRecord> NOTIFICATIONS__NOTIFICATIONS_STORY_REQUEST_ID_FKEY = ForeignKeys0.NOTIFICATIONS__NOTIFICATIONS_STORY_REQUEST_ID_FKEY;
     public static final ForeignKey<SolutionsRecord, BoardsRecord> SOLUTIONS__SOLUTIONS_BOARD_ID_FKEY = ForeignKeys0.SOLUTIONS__SOLUTIONS_BOARD_ID_FKEY;
     public static final ForeignKey<SolutionsRecord, TicketsRecord> SOLUTIONS__SOLUTIONS_TICKET_ID_FKEY = ForeignKeys0.SOLUTIONS__SOLUTIONS_TICKET_ID_FKEY;
     public static final ForeignKey<SolutionsRecord, SprintsRecord> SOLUTIONS__SOLUTIONS_SPRINT_ID_FKEY = ForeignKeys0.SOLUTIONS__SOLUTIONS_SPRINT_ID_FKEY;
@@ -125,6 +131,7 @@ public class Keys {
         public static Identity<EpicsRecord, Long> IDENTITY_EPICS = Internal.createIdentity(Epics.EPICS, Epics.EPICS.ID);
         public static Identity<InvalidatedTokensRecord, Long> IDENTITY_INVALIDATED_TOKENS = Internal.createIdentity(InvalidatedTokens.INVALIDATED_TOKENS, InvalidatedTokens.INVALIDATED_TOKENS.ID);
         public static Identity<MembershipsRecord, Long> IDENTITY_MEMBERSHIPS = Internal.createIdentity(Memberships.MEMBERSHIPS, Memberships.MEMBERSHIPS.ID);
+        public static Identity<NotificationsRecord, Long> IDENTITY_NOTIFICATIONS = Internal.createIdentity(Notifications.NOTIFICATIONS, Notifications.NOTIFICATIONS.ID);
         public static Identity<SolutionsRecord, Long> IDENTITY_SOLUTIONS = Internal.createIdentity(Solutions.SOLUTIONS, Solutions.SOLUTIONS.ID);
         public static Identity<SprintsRecord, Long> IDENTITY_SPRINTS = Internal.createIdentity(Sprints.SPRINTS, Sprints.SPRINTS.ID);
         public static Identity<StoryRequestsRecord, Long> IDENTITY_STORY_REQUESTS = Internal.createIdentity(StoryRequests.STORY_REQUESTS, StoryRequests.STORY_REQUESTS.ID);
@@ -142,6 +149,7 @@ public class Keys {
         public static final UniqueKey<JiraCsvRecord> JIRA_CSV_PKEY = Internal.createUniqueKey(JiraCsv.JIRA_CSV, "jira_csv_pkey", new TableField[] { JiraCsv.JIRA_CSV.BOARD_ID }, true);
         public static final UniqueKey<MembershipsRecord> MEMBERSHIPS_PKEY = Internal.createUniqueKey(Memberships.MEMBERSHIPS, "memberships_pkey", new TableField[] { Memberships.MEMBERSHIPS.ID }, true);
         public static final UniqueKey<MembershipsRecord> MEMBERSHIPS_USER_ID_ACCOUNT_ID_KEY = Internal.createUniqueKey(Memberships.MEMBERSHIPS, "memberships_user_id_account_id_key", new TableField[] { Memberships.MEMBERSHIPS.USER_ID, Memberships.MEMBERSHIPS.ACCOUNT_ID }, true);
+        public static final UniqueKey<NotificationsRecord> NOTIFICATIONS_PKEY = Internal.createUniqueKey(Notifications.NOTIFICATIONS, "notifications_pkey", new TableField[] { Notifications.NOTIFICATIONS.ID }, true);
         public static final UniqueKey<SolutionsRecord> SOLUTIONS_BOARD_ID_TICKET_ID_SPRINT_ID_PREVIEW_KEY = Internal.createUniqueKey(Solutions.SOLUTIONS, "solutions_board_id_ticket_id_sprint_id_preview_key", new TableField[] { Solutions.SOLUTIONS.BOARD_ID, Solutions.SOLUTIONS.TICKET_ID, Solutions.SOLUTIONS.SPRINT_ID, Solutions.SOLUTIONS.PREVIEW }, true);
         public static final UniqueKey<SolutionsRecord> SOLUTIONS_PKEY = Internal.createUniqueKey(Solutions.SOLUTIONS, "solutions_pkey", new TableField[] { Solutions.SOLUTIONS.ID }, true);
         public static final UniqueKey<SprintsRecord> SPRINTS_PKEY = Internal.createUniqueKey(Sprints.SPRINTS, "sprints_pkey", new TableField[] { Sprints.SPRINTS.ID }, true);
@@ -161,6 +169,8 @@ public class Keys {
         public static final ForeignKey<JiraCsvRecord, BoardsRecord> JIRA_CSV__JIRA_CSV_BOARD_ID_FKEY = Internal.createForeignKey(Keys.BOARDS_PKEY, JiraCsv.JIRA_CSV, "jira_csv_board_id_fkey", new TableField[] { JiraCsv.JIRA_CSV.BOARD_ID }, true);
         public static final ForeignKey<MembershipsRecord, UsersRecord> MEMBERSHIPS__MEMBERSHIPS_USER_ID_FKEY = Internal.createForeignKey(Keys.USERS_PKEY, Memberships.MEMBERSHIPS, "memberships_user_id_fkey", new TableField[] { Memberships.MEMBERSHIPS.USER_ID }, true);
         public static final ForeignKey<MembershipsRecord, AccountsRecord> MEMBERSHIPS__MEMBERSHIPS_ACCOUNT_ID_FKEY = Internal.createForeignKey(Keys.ACCOUNTS_PKEY, Memberships.MEMBERSHIPS, "memberships_account_id_fkey", new TableField[] { Memberships.MEMBERSHIPS.ACCOUNT_ID }, true);
+        public static final ForeignKey<NotificationsRecord, BoardsRecord> NOTIFICATIONS__NOTIFICATIONS_RECIPIENT_ID_FKEY = Internal.createForeignKey(Keys.BOARDS_PKEY, Notifications.NOTIFICATIONS, "notifications_recipient_id_fkey", new TableField[] { Notifications.NOTIFICATIONS.RECIPIENT_ID }, true);
+        public static final ForeignKey<NotificationsRecord, StoryRequestsRecord> NOTIFICATIONS__NOTIFICATIONS_STORY_REQUEST_ID_FKEY = Internal.createForeignKey(Keys.STORY_REQUESTS_PKEY, Notifications.NOTIFICATIONS, "notifications_story_request_id_fkey", new TableField[] { Notifications.NOTIFICATIONS.STORY_REQUEST_ID }, true);
         public static final ForeignKey<SolutionsRecord, BoardsRecord> SOLUTIONS__SOLUTIONS_BOARD_ID_FKEY = Internal.createForeignKey(Keys.BOARDS_PKEY, Solutions.SOLUTIONS, "solutions_board_id_fkey", new TableField[] { Solutions.SOLUTIONS.BOARD_ID }, true);
         public static final ForeignKey<SolutionsRecord, TicketsRecord> SOLUTIONS__SOLUTIONS_TICKET_ID_FKEY = Internal.createForeignKey(Keys.TICKETS_PKEY, Solutions.SOLUTIONS, "solutions_ticket_id_fkey", new TableField[] { Solutions.SOLUTIONS.TICKET_ID }, true);
         public static final ForeignKey<SolutionsRecord, SprintsRecord> SOLUTIONS__SOLUTIONS_SPRINT_ID_FKEY = Internal.createForeignKey(Keys.SPRINTS_PKEY, Solutions.SOLUTIONS, "solutions_sprint_id_fkey", new TableField[] { Solutions.SOLUTIONS.SPRINT_ID }, true);

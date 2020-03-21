@@ -11,6 +11,7 @@ import com.sourceclear.agile.piplanning.service.jooq.tables.FlywaySchemaHistory;
 import com.sourceclear.agile.piplanning.service.jooq.tables.InvalidatedTokens;
 import com.sourceclear.agile.piplanning.service.jooq.tables.JiraCsv;
 import com.sourceclear.agile.piplanning.service.jooq.tables.Memberships;
+import com.sourceclear.agile.piplanning.service.jooq.tables.Notifications;
 import com.sourceclear.agile.piplanning.service.jooq.tables.Solutions;
 import com.sourceclear.agile.piplanning.service.jooq.tables.Sprints;
 import com.sourceclear.agile.piplanning.service.jooq.tables.StoryRequests;
@@ -34,7 +35,7 @@ import org.jooq.impl.SchemaImpl;
 @SuppressWarnings({ "all", "unchecked", "rawtypes" })
 public class Agile extends SchemaImpl {
 
-    private static final long serialVersionUID = 2101389063;
+    private static final long serialVersionUID = 196828408;
 
     /**
      * The reference instance of <code>agile</code>
@@ -75,6 +76,11 @@ public class Agile extends SchemaImpl {
      * The table <code>agile.memberships</code>.
      */
     public final Memberships MEMBERSHIPS = Memberships.MEMBERSHIPS;
+
+    /**
+     * The table <code>agile.notifications</code>.
+     */
+    public final Notifications NOTIFICATIONS = Notifications.NOTIFICATIONS;
 
     /**
      * The table <code>agile.solutions</code>.
@@ -132,6 +138,7 @@ public class Agile extends SchemaImpl {
             Sequences.EPICS_ID_SEQ,
             Sequences.INVALIDATED_TOKENS_ID_SEQ,
             Sequences.MEMBERSHIPS_ID_SEQ,
+            Sequences.NOTIFICATIONS_ID_SEQ,
             Sequences.SOLUTIONS_ID_SEQ,
             Sequences.SPRINTS_ID_SEQ,
             Sequences.STORY_REQUESTS_ID_SEQ,
@@ -149,6 +156,7 @@ public class Agile extends SchemaImpl {
             InvalidatedTokens.INVALIDATED_TOKENS,
             JiraCsv.JIRA_CSV,
             Memberships.MEMBERSHIPS,
+            Notifications.NOTIFICATIONS,
             Solutions.SOLUTIONS,
             Sprints.SPRINTS,
             StoryRequests.STORY_REQUESTS,

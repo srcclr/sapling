@@ -9,6 +9,7 @@ import com.fasterxml.jackson.module.kotlin.KotlinModule;
 import com.sourceclear.agile.piplanning.objects.BoardI;
 import com.sourceclear.agile.piplanning.objects.BoardL;
 import com.sourceclear.agile.piplanning.objects.BoardO;
+import com.sourceclear.agile.piplanning.objects.NotificationO;
 import com.sourceclear.agile.piplanning.objects.Soln;
 import com.sourceclear.agile.piplanning.objects.SprintE;
 import com.sourceclear.agile.piplanning.objects.SprintO;
@@ -86,6 +87,7 @@ import static com.sourceclear.agile.piplanning.service.configs.Exceptions.intern
 import static com.sourceclear.agile.piplanning.service.configs.Exceptions.notAcceptable;
 import static com.sourceclear.agile.piplanning.service.configs.Exceptions.notFound;
 import static com.sourceclear.agile.piplanning.service.jooq.tables.JiraCsv.JIRA_CSV;
+import static com.sourceclear.agile.piplanning.service.jooq.tables.Notifications.NOTIFICATIONS;
 import static com.sourceclear.agile.piplanning.service.jooq.tables.StoryRequests.STORY_REQUESTS;
 import static java.util.stream.Collectors.groupingBy;
 import static java.util.stream.Collectors.mapping;
@@ -610,10 +612,15 @@ public class BoardController {
    * Given a solution for the given board in flattened form, constructs the nested version
    */
   private BoardO reconstructBoard(Set<Solution> rawAssignments, Board board) {
+
+    List<NotificationO> notifications = create.selectFrom(NOTIFICATIONS)
+        .where(NOTIFICATIONS.RECIPIENT_ID.eq(board.getId()).and(NOTIFICATIONS.ACKNOWLEDGED.isFalse()))
+        .fetch(r -> Notifications.INSTANCE.create(r, create));
+
     var resultSprints = new ArrayList<SprintO>();
     var unassigned = new ArrayList<TicketO>();
     var result = new BoardO(board.getId(), board.getName(), board.getOwner().getUsername(),
-        resultSprints, unassigned);
+        resultSprints, unassigned, notifications);
 
     // Duplicates are identical so we can discard them.
     var assignedTicketsById = rawAssignments.stream()

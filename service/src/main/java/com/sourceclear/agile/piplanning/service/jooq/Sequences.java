@@ -40,6 +40,11 @@ public class Sequences {
     public static final Sequence<Long> MEMBERSHIPS_ID_SEQ = Internal.createSequence("memberships_id_seq", Agile.AGILE, org.jooq.impl.SQLDataType.BIGINT.nullable(false), null, null, null, null, false, null);
 
     /**
+     * The sequence <code>agile.notifications_id_seq</code>
+     */
+    public static final Sequence<Long> NOTIFICATIONS_ID_SEQ = Internal.createSequence("notifications_id_seq", Agile.AGILE, org.jooq.impl.SQLDataType.BIGINT.nullable(false), null, null, null, null, false, null);
+
+    /**
      * The sequence <code>agile.solutions_id_seq</code>
      */
     public static final Sequence<Long> SOLUTIONS_ID_SEQ = Internal.createSequence("solutions_id_seq", Agile.AGILE, org.jooq.impl.SQLDataType.BIGINT.nullable(false), null, null, null, null, false, null);

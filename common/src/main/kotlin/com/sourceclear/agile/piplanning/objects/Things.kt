@@ -1,5 +1,7 @@
 package com.sourceclear.agile.piplanning.objects
 
+import com.fasterxml.jackson.annotation.JsonTypeInfo
+import com.fasterxml.jackson.annotation.JsonTypeName
 import java.util.Optional
 
 data class EpicI(val name: String, val priority: Int)
@@ -30,7 +32,8 @@ data class BoardO(
     val name: String,
     val owner: String,
     val sprints: List<SprintO>,
-    val unassigned: List<TicketO>)
+    val unassigned: List<TicketO>,
+    val notifications: List<NotificationO>)
 
 data class SprintO(
     val id: Long,
@@ -49,6 +52,20 @@ data class TicketO(
     val crossBoardDependencies: Set<StoryRequestO>,
     val crossBoardDependents: Boolean
 )
+
+@JsonTypeInfo(use = JsonTypeInfo.Id.NAME)
+sealed class NotificationO(open val id: Long) {
+
+  @JsonTypeName("StoryRequest")
+  data class StoryRequest(
+      override val id: Long,
+      val sender: String,
+      val sprint: String,
+      val epic: String,
+      val description: String,
+      val points: Int,
+      val notes: String) : NotificationO(id)
+}
 
 data class StoryRequestO(
     val id: Long,

@@ -11,6 +11,7 @@ import com.sourceclear.agile.piplanning.service.jooq.tables.FlywaySchemaHistory;
 import com.sourceclear.agile.piplanning.service.jooq.tables.InvalidatedTokens;
 import com.sourceclear.agile.piplanning.service.jooq.tables.JiraCsv;
 import com.sourceclear.agile.piplanning.service.jooq.tables.Memberships;
+import com.sourceclear.agile.piplanning.service.jooq.tables.Notifications;
 import com.sourceclear.agile.piplanning.service.jooq.tables.Solutions;
 import com.sourceclear.agile.piplanning.service.jooq.tables.Sprints;
 import com.sourceclear.agile.piplanning.service.jooq.tables.StoryRequests;
@@ -60,6 +61,11 @@ public class Tables {
      * The table <code>agile.memberships</code>.
      */
     public static final Memberships MEMBERSHIPS = Memberships.MEMBERSHIPS;
+
+    /**
+     * The table <code>agile.notifications</code>.
+     */
+    public static final Notifications NOTIFICATIONS = Notifications.NOTIFICATIONS;
 
     /**
      * The table <code>agile.solutions</code>.

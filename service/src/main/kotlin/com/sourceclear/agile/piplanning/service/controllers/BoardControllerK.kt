@@ -9,6 +9,7 @@ import com.sourceclear.agile.piplanning.objects.CrossBoardDeps
 import com.sourceclear.agile.piplanning.objects.DepI
 import com.sourceclear.agile.piplanning.objects.EpicI
 import com.sourceclear.agile.piplanning.objects.EpicO
+import com.sourceclear.agile.piplanning.objects.NotificationO
 import com.sourceclear.agile.piplanning.objects.PinI
 import com.sourceclear.agile.piplanning.objects.SRState.*
 import com.sourceclear.agile.piplanning.objects.StateChangeInput
@@ -20,6 +21,8 @@ import com.sourceclear.agile.piplanning.service.entities.Pin
 import com.sourceclear.agile.piplanning.service.entities.login.User
 import com.sourceclear.agile.piplanning.service.jooq.tables.Boards.BOARDS
 import com.sourceclear.agile.piplanning.service.jooq.tables.Epics.EPICS
+import com.sourceclear.agile.piplanning.service.jooq.tables.Notifications
+import com.sourceclear.agile.piplanning.service.jooq.tables.Notifications.NOTIFICATIONS
 import com.sourceclear.agile.piplanning.service.jooq.tables.Solutions.SOLUTIONS
 import com.sourceclear.agile.piplanning.service.jooq.tables.Sprints.SPRINTS
 import com.sourceclear.agile.piplanning.service.jooq.tables.StoryRequests.STORY_REQUESTS
@@ -30,10 +33,9 @@ import com.sourceclear.agile.piplanning.service.repositories.BoardRepository
 import com.sourceclear.agile.piplanning.service.repositories.EpicRepository
 import com.sourceclear.agile.piplanning.service.repositories.SprintRepository
 import com.sourceclear.agile.piplanning.service.repositories.TicketRepository
-import org.apache.commons.collections4.CollectionUtils.select
+import org.jooq.UpdatableRecord
 import org.jooq.impl.DSL
 import org.jooq.impl.DSL.max
-import org.jooq.impl.DSL.selectOne
 import org.jooq.impl.DefaultDSLContext
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.http.ResponseEntity
@@ -187,6 +189,12 @@ open class BoardControllerK @Autowired constructor(
     fromStoryRequest(s, storyRequest, b.name)
     // at this point there is no to-ticket
     s.store()
+
+    val n = create.newRecord(NOTIFICATIONS)
+    n.type = NotificationO.StoryRequest::class.simpleName
+    n.storyRequestId = s.id
+    n.recipientId = s.toBoardId
+    n.store()
   }
 
   @PutMapping("/board/{boardId}/request/{requestId}")
@@ -398,6 +406,23 @@ open class BoardControllerK @Autowired constructor(
         .fetchOne()
 
     return ResponseEntity.ok(CrossBoardDeps(deps, maxSprint))
+  }
+
+  @PostMapping("/boards/{boardId}/notifications/{notificationId}/acknowledge")
+  @Transactional
+  open fun ackNotification(
+      @AuthenticationPrincipal user: User,
+      @PathVariable boardId: Long,
+      @PathVariable notificationId: Long) {
+    validateBoard(user, boardId)
+
+    val n = create.selectFrom(NOTIFICATIONS)
+        .where(NOTIFICATIONS.ID.eq(notificationId).and(NOTIFICATIONS.RECIPIENT_ID.eq(boardId)))
+        .fetchOne()
+        ?: throw badRequest
+
+    n.acknowledged = true
+    n.store()
   }
 
   private fun validateBoard(user: User, boardId: Long): BoardsRecord {
