@@ -98,6 +98,7 @@ data class DepI(val fromTicketId: Long, val toTicketId: Long)
 
 data class BoardD(val name: String, val sprint: Int?)
 data class CrossBoardDep(val from: BoardD, val to: BoardD)
+data class CrossBoardDeps(val deps: List<CrossBoardDep>, val maxSprint: Int)
 
 // For representing problems
 

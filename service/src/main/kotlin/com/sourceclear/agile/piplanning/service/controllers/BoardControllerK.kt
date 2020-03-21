@@ -5,6 +5,7 @@ package com.sourceclear.agile.piplanning.service.controllers
 
 import com.sourceclear.agile.piplanning.objects.BoardD
 import com.sourceclear.agile.piplanning.objects.CrossBoardDep
+import com.sourceclear.agile.piplanning.objects.CrossBoardDeps
 import com.sourceclear.agile.piplanning.objects.DepI
 import com.sourceclear.agile.piplanning.objects.EpicI
 import com.sourceclear.agile.piplanning.objects.EpicO
@@ -29,7 +30,10 @@ import com.sourceclear.agile.piplanning.service.repositories.BoardRepository
 import com.sourceclear.agile.piplanning.service.repositories.EpicRepository
 import com.sourceclear.agile.piplanning.service.repositories.SprintRepository
 import com.sourceclear.agile.piplanning.service.repositories.TicketRepository
+import org.apache.commons.collections4.CollectionUtils.select
 import org.jooq.impl.DSL
+import org.jooq.impl.DSL.max
+import org.jooq.impl.DSL.selectOne
 import org.jooq.impl.DefaultDSLContext
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.http.ResponseEntity
@@ -360,7 +364,7 @@ open class BoardControllerK @Autowired constructor(
 
   @GetMapping("/boards/dependencies")
   @Transactional
-  open fun crossBoardDependencies(): ResponseEntity<List<CrossBoardDep>> {
+  open fun crossBoardDependencies(): ResponseEntity<CrossBoardDeps> {
 
     val b1 = BOARDS.`as`("b1")
     val b2 = BOARDS.`as`("b2")
@@ -370,9 +374,10 @@ open class BoardControllerK @Autowired constructor(
     val sp1 = SPRINTS.`as`("sp1")
     val sp2 = SPRINTS.`as`("sp2")
 
-    // Unfortunately we can't use onKey for the last two
+    // Unfortunately we can't use onKey for the last two;
+    // also, onKey only works when joining to the first table.
     // https://github.com/jOOQ/jOOQ/issues/7626
-    return ResponseEntity.ok(
+    val deps =
         create.select(b1.NAME, b2.NAME, sp1.ORDINAL, sp2.ORDINAL)
             .from(sr
                 .join(b1).onKey(STORY_REQUESTS.FROM_BOARD_ID)
@@ -384,7 +389,15 @@ open class BoardControllerK @Autowired constructor(
             .where(sr.STATE.eq(Accepted.name))
             .fetch { (b1, b2, sp1, sp2) ->
               CrossBoardDep(BoardD(b1, sp1), BoardD(b2, sp2))
-            })
+            }
+
+    val (maxSprint) = create.select(max(sp1.ORDINAL))
+        .from(sr
+            .join(b1).on(b1.ID.eq(sr.FROM_BOARD_ID).or(b1.ID.eq(sr.TO_BOARD_ID)))
+            .join(sp1).on(sp1.BOARD_ID.eq(b1.ID)))
+        .fetchOne()
+
+    return ResponseEntity.ok(CrossBoardDeps(deps, maxSprint))
   }
 
   private fun validateBoard(user: User, boardId: Long): BoardsRecord {
