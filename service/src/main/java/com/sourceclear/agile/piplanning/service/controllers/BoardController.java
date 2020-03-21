@@ -69,6 +69,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -287,32 +288,51 @@ public class BoardController {
               (a, b) -> b));
     }
 
+    // There must be at least one record, as we check on upload
+    String[] header = records.values().iterator().next().keySet().toArray(new String[]{});
+
+    List<Map<String, String>> newRecords = new ArrayList<>();
+
     for (TicketCD r : result) {
       String summary = r.getSummary();
+      // If the same key appears in more than one ticket, we'll clobber it
       var key = splitIssueKey(summary);
+
+      // Check if it's an existing ticket
+      Map<String, String> record = null;
       if (key.isPresent()) {
         String issueKey = key.get().getFirst();
         if (records.containsKey(issueKey)) {
-          Map<String, String> record = records.get(issueKey);
-          // Read using the input columns
-          record.put(INPUT_EPIC, r.getEpic());
-          record.put(INPUT_SUMMARY, key.get().getSecond());
-          record.put(INPUT_STORY_POINTS, Integer.toString(r.getPoints()));
-          record.put(INPUT_SPRINT, r.getSprint());
-          // if the same key appears in more than one ticket, clobber
-        } // otherwise drop silently
-      } // otherwise drop silently
+          // Could be associated with an existing ticket
+          record = records.get(issueKey);
+          summary = key.get().getSecond();
+        }
+      }
+
+      // Could not be associated; create a new ticket instead
+      if (record == null) {
+        var r1 = record = new HashMap<>();
+        Arrays.stream(header).forEach(h -> r1.put(h, null));
+        newRecords.add(r1);
+      }
+
+      // Read using the input columns
+      record.put(INPUT_EPIC, r.getEpic());
+      record.put(INPUT_SUMMARY, summary);
+      record.put(INPUT_STORY_POINTS, Integer.toString(r.getPoints()));
+      record.put(INPUT_SPRINT, r.getSprint());
     }
 
-    if (records.isEmpty()) {
-      return;
-    }
-
-    String[] header = records.values().iterator().next().keySet().toArray(new String[]{});
     try (BufferedWriter out = new BufferedWriter(response.getWriter());
          CSVPrinter printer = new CSVPrinter(out, CSVFormat.DEFAULT.withHeader(header))) {
+
       for (Map<String, String> r : records.values()) {
-        // Make sure ordering is preserved
+        // Make sure header ordering is preserved
+        Object[] values = Arrays.stream(header).map(r::get).toArray();
+        printer.printRecord(values);
+      }
+
+      for (Map<String, String> r : newRecords) {
         Object[] values = Arrays.stream(header).map(r::get).toArray();
         printer.printRecord(values);
       }
@@ -688,6 +708,10 @@ public class BoardController {
               return Stream.of();
             }
           }).collect(Collectors.toSet());
+
+      if (tickets.isEmpty()) {
+        throw new IllegalArgumentException("no stories could be parsed from csv file");
+      }
 
       // Epics are given arbitrary but differing priorities
       var epics = tickets.stream().map(TicketCU::getEpic)
