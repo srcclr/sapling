@@ -34,7 +34,7 @@ import org.jooq.impl.TableImpl;
 @SuppressWarnings({ "all", "unchecked", "rawtypes" })
 public class StoryRequests extends TableImpl<StoryRequestsRecord> {
 
-    private static final long serialVersionUID = 487762217;
+    private static final long serialVersionUID = 1879575509;
 
     /**
      * The reference instance of <code>agile.story_requests</code>
@@ -164,10 +164,14 @@ public class StoryRequests extends TableImpl<StoryRequestsRecord> {
 
     @Override
     public List<ForeignKey<StoryRequestsRecord, ?>> getReferences() {
-        return Arrays.<ForeignKey<StoryRequestsRecord, ?>>asList(Keys.STORY_REQUESTS__STORY_REQUESTS_TO_BOARD_ID_FKEY, Keys.STORY_REQUESTS__STORY_REQUESTS_FROM_TICKET_ID_FKEY, Keys.STORY_REQUESTS__STORY_REQUESTS_TO_TICKET_ID_FKEY, Keys.STORY_REQUESTS__STORY_REQUESTS_TO_TICKET_EPIC_ID_FKEY, Keys.STORY_REQUESTS__STORY_REQUESTS_TO_TICKET_SPRINT_ID_FKEY);
+        return Arrays.<ForeignKey<StoryRequestsRecord, ?>>asList(Keys.STORY_REQUESTS__STORY_REQUESTS_FROM_BOARD_ID_FKEY, Keys.STORY_REQUESTS__STORY_REQUESTS_TO_BOARD_ID_FKEY, Keys.STORY_REQUESTS__STORY_REQUESTS_FROM_TICKET_ID_FKEY, Keys.STORY_REQUESTS__STORY_REQUESTS_TO_TICKET_ID_FKEY, Keys.STORY_REQUESTS__STORY_REQUESTS_TO_TICKET_EPIC_ID_FKEY, Keys.STORY_REQUESTS__STORY_REQUESTS_TO_TICKET_SPRINT_ID_FKEY);
     }
 
-    public Boards boards() {
+    public Boards storyRequestsFromBoardIdFkey() {
+        return new Boards(this, Keys.STORY_REQUESTS__STORY_REQUESTS_FROM_BOARD_ID_FKEY);
+    }
+
+    public Boards storyRequestsToBoardIdFkey() {
         return new Boards(this, Keys.STORY_REQUESTS__STORY_REQUESTS_TO_BOARD_ID_FKEY);
     }
 
