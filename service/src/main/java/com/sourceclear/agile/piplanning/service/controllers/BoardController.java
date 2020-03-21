@@ -692,14 +692,14 @@ public class BoardController {
       // Epics are given arbitrary but differing priorities
       var epics = tickets.stream().map(TicketCU::getEpic)
           .distinct()
-          .collect(Collectors.toMap(e -> e, e -> new Epic(e, priority[0]++, board)));
+          .collect(Collectors.toMap(e -> e, e -> new Epic(e, ++priority[0], board)));
       board.getEpics().addAll(epics.values());
 
       // Sprints are ordered similarly and given an arbitrary capacity
       var sprints = tickets.stream().map(TicketCU::getSprint)
           .flatMap(Optional::stream)
           .distinct()
-          .map(s -> new Sprint(board, s, "", 20, ordinal[0]++))
+          .map(s -> new Sprint(board, s, "", 20, ++ordinal[0]))
           .collect(Collectors.toList());
       board.getSprints().addAll(sprints);
 
