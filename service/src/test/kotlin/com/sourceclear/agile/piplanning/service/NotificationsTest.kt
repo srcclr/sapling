@@ -1,7 +1,7 @@
 /*
  * © Copyright 2019 -  SourceClear Inc
  */
-package com.sourceclear.agile.piplanning.service.services
+package com.sourceclear.agile.piplanning.service
 
 import com.fasterxml.jackson.module.kotlin.readValue
 import com.sourceclear.agile.piplanning.objects.NotificationO
@@ -13,10 +13,10 @@ import org.junit.Test
 class NotificationsTest {
   @Test
   fun testDeserialization() {
-    val value = NotificationO.StoryRequest(1L, "sender", "sprint", "epic", "descripton", 1, "notes")
+    val value = NotificationO.IncomingStoryRequest(1L, "sender", "sprint", "epic", "descripton", 1, "notes")
     val s = Notifications.mapper.writeValueAsString(value)
-    val value1 = Notifications.mapper.readValue<NotificationO.StoryRequest>(s)
-    assertTrue(s.contains("\"@type\":\"" + NotificationO.StoryRequest::class.simpleName + "\""))
+    val value1 = Notifications.mapper.readValue<NotificationO.IncomingStoryRequest>(s)
+    assertTrue(s.contains("\"@type\":\"" + NotificationO.IncomingStoryRequest::class.simpleName + "\""))
     assertEquals(value, value1)
   }
 }

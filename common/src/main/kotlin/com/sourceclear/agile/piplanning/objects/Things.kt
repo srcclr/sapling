@@ -56,8 +56,8 @@ data class TicketO(
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME)
 sealed class NotificationO(open val id: Long) {
 
-  @JsonTypeName("StoryRequest")
-  data class StoryRequest(
+  @JsonTypeName("IncomingStoryRequest")
+  data class IncomingStoryRequest(
       override val id: Long,
       val sender: String,
       val sprint: String,

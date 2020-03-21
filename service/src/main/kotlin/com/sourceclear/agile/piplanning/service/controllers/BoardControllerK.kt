@@ -21,7 +21,6 @@ import com.sourceclear.agile.piplanning.service.entities.Pin
 import com.sourceclear.agile.piplanning.service.entities.login.User
 import com.sourceclear.agile.piplanning.service.jooq.tables.Boards.BOARDS
 import com.sourceclear.agile.piplanning.service.jooq.tables.Epics.EPICS
-import com.sourceclear.agile.piplanning.service.jooq.tables.Notifications
 import com.sourceclear.agile.piplanning.service.jooq.tables.Notifications.NOTIFICATIONS
 import com.sourceclear.agile.piplanning.service.jooq.tables.Solutions.SOLUTIONS
 import com.sourceclear.agile.piplanning.service.jooq.tables.Sprints.SPRINTS
@@ -33,7 +32,6 @@ import com.sourceclear.agile.piplanning.service.repositories.BoardRepository
 import com.sourceclear.agile.piplanning.service.repositories.EpicRepository
 import com.sourceclear.agile.piplanning.service.repositories.SprintRepository
 import com.sourceclear.agile.piplanning.service.repositories.TicketRepository
-import org.jooq.UpdatableRecord
 import org.jooq.impl.DSL
 import org.jooq.impl.DSL.max
 import org.jooq.impl.DefaultDSLContext
@@ -191,7 +189,7 @@ open class BoardControllerK @Autowired constructor(
     s.store()
 
     val n = create.newRecord(NOTIFICATIONS)
-    n.type = NotificationO.StoryRequest::class.simpleName
+    n.type = NotificationO.IncomingStoryRequest::class.simpleName
     n.storyRequestId = s.id
     n.recipientId = s.toBoardId
     n.store()

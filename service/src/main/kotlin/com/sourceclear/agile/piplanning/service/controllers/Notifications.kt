@@ -12,7 +12,7 @@ object Notifications {
 
   fun create(n: NotificationsRecord, create: DSLContext): NotificationO {
     return when (n.type) {
-      NotificationO.StoryRequest::class.simpleName -> {
+      NotificationO.IncomingStoryRequest::class.simpleName -> {
         create.select(
                 STORY_REQUESTS.storyRequestsFromBoardIdFkey().NAME,
                 STORY_REQUESTS.epics().NAME,
@@ -23,7 +23,7 @@ object Notifications {
             .from(STORY_REQUESTS)
             .where(STORY_REQUESTS.ID.eq(n.storyRequestId))
             .fetchOne { (sender, epic, sprint, desc, points, notes) ->
-              NotificationO.StoryRequest(id = n.id, sender = sender, epic = epic,
+              NotificationO.IncomingStoryRequest(id = n.id, sender = sender, epic = epic,
                   sprint = sprint, description = desc, points = points, notes = notes)
             }
       }
