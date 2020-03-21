@@ -274,6 +274,11 @@ open class BoardControllerK @Autowired constructor(
     sol.unassigned = false
     sol.preview = false
     sol.store()
+
+    create.update(NOTIFICATIONS)
+        .set(NOTIFICATIONS.ACKNOWLEDGED, true)
+        .where(NOTIFICATIONS.STORY_REQUEST_ID.eq(requestId).and(NOTIFICATIONS.TYPE.eq(NotificationO.IncomingStoryRequest::class.simpleName)))
+        .execute();
   }
 
   @PostMapping("/board/{boardId}/request/{requestId}/reject")
@@ -306,6 +311,9 @@ open class BoardControllerK @Autowired constructor(
 
     create.delete(TICKETS)
         .where(TICKETS.ID.eq(ticket))
+    create.update(NOTIFICATIONS)
+        .set(NOTIFICATIONS.ACKNOWLEDGED, true)
+        .where(NOTIFICATIONS.STORY_REQUEST_ID.eq(requestId).and(NOTIFICATIONS.TYPE.eq(NotificationO.IncomingStoryRequest::class.simpleName)))
         .execute();
   }
 
