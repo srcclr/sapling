@@ -26,13 +26,13 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 public class ClingoServiceImpl implements ClingoService {
 
@@ -197,13 +197,13 @@ public class ClingoServiceImpl implements ClingoService {
 
   private Set<Soln> interpret(List<Fact> facts) {
     return facts.stream().filter(f -> f.getName().equals("assign"))
-        .map(f -> {
+        .flatMap(f -> {
           long ticket = Long.parseLong(f.getArgs().get(0));
           String sprint = f.getArgs().get(1);
           if (sprint.equals("unassigned")) {
-            return new Soln(ticket, Optional.empty(), true);
+            return Stream.empty();
           } else {
-            return new Soln(ticket, Optional.of(Long.parseLong(sprint)), false);
+            return Stream.of(new Soln(ticket, Long.parseLong(sprint)));
           }
         })
         .collect(Collectors.toSet());

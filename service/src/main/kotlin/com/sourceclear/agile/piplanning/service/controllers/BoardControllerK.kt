@@ -157,7 +157,7 @@ open class BoardControllerK @Autowired constructor(
   @Transactional
   open fun createDep(@PathVariable boardId: Long, @Valid @RequestBody dep: DepI) {
     if (dep.fromTicketId == dep.toTicketId) {
-      throw badRequest;
+      throw badRequest
     }
     val b = boardRepository.findWithDeps(boardId).orElseThrow(notFound)!!
     if (b.deps.none { it.fromTicketId == dep.fromTicketId && it.toTicketId == dep.toTicketId }) {
@@ -183,7 +183,7 @@ open class BoardControllerK @Autowired constructor(
       @PathVariable boardId: Long, @Valid @RequestBody storyRequest: StoryRequestI) {
     val b = validateBoard(user, boardId)
 
-    val s = create.newRecord(STORY_REQUESTS);
+    val s = create.newRecord(STORY_REQUESTS)
     s.state = Pending.name
     s.fromBoardId = boardId
     fromStoryRequest(s, storyRequest, b.name)
@@ -256,7 +256,7 @@ open class BoardControllerK @Autowired constructor(
       throw badRequest
     }
 
-    val t = create.newRecord(TICKETS);
+    val t = create.newRecord(TICKETS)
     t.boardId = s.toBoardId
     t.description = s.toTicketDescription
     t.weight = s.toTicketWeight
@@ -269,13 +269,13 @@ open class BoardControllerK @Autowired constructor(
     s.toTicketId = t.id
     s.store()
 
-    val sol = create.newRecord(SOLUTIONS);
-    sol.boardId = s.toBoardId
-    sol.ticketId = t.id
-    sol.sprintId = s.toTicketSprintId
-    sol.unassigned = false
-    sol.preview = false
-    sol.store()
+    create.newRecord(SOLUTIONS).let {
+      it.boardId = s.toBoardId
+      it.ticketId = t.id
+      it.sprintId = s.toTicketSprintId
+      it.preview = false
+      it.store()
+    }
 
     create.update(NOTIFICATIONS)
         .set(NOTIFICATIONS.ACKNOWLEDGED, true)

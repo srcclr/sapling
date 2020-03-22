@@ -227,8 +227,6 @@ public class BoardController {
     Ticket t = new Ticket(board, epic, ticket);
     t = ticketRepository.save(t);
 
-    solutionRepository.save(new Solution(board, t, false));
-
     return ResponseEntity.ok(new TicketO(t.getId(), t.getDescription(), t.getWeight(), epic.getId(),
         null, new HashSet<>(), new HashSet<>(), false));
   }
@@ -524,9 +522,8 @@ public class BoardController {
       Set<Solution> solution = soln.stream()
           .map(s ->
               new Solution(board,
-                  s.getSprintId().map(sprintsById::get).orElse(null),
+                  sprintsById.get(s.getSprintId()),
                   ticketsById.get(s.getTicketId()),
-                  s.getUnassigned(),
                   true))
           .collect(Collectors.toSet());
 
@@ -563,9 +560,8 @@ public class BoardController {
     Set<Solution> solution = soln.stream()
         .map(s ->
             new Solution(board,
-                s.getSprintId().map(sprintsById::get).orElse(null),
+                sprintsById.get(s.getSprintId()),
                 ticketsById.get(s.getTicketId()),
-                s.getUnassigned(),
                 false))
         .collect(Collectors.toSet());
     solutionRepository.deleteRealSolution(board);
@@ -658,11 +654,6 @@ public class BoardController {
           .collect(toList());
 
       board.getTickets().addAll(tix);
-
-      // Make sure they show up as unassigned
-      epicRepository.saveAll(epics.values());
-      ticketRepository.saveAll(tix); // or Hibernate complains
-      solutionRepository.saveAll(tix.stream().map(t -> new Solution(board, t, false))::iterator);
 
       LOGGER.debug("added {} epics, {} sprints, {} tickets; {} failed to parse",
           epics.size(), sprints.size(), tickets.size(), errors[0]);

@@ -109,8 +109,8 @@ data class Fact(
 
 data class Soln(
     val ticketId: Long,
-    val sprintId: Optional<Long>, // for Java interop
-    val unassigned: Boolean)
+    val sprintId: Long
+)
 
 data class PinI(val ticketId: Long, val sprintId: Long)
 

@@ -5,6 +5,7 @@ package com.sourceclear.agile.piplanning.service.jooq.tables;
 
 
 import com.sourceclear.agile.piplanning.service.jooq.Agile;
+import com.sourceclear.agile.piplanning.service.jooq.Indexes;
 import com.sourceclear.agile.piplanning.service.jooq.Keys;
 import com.sourceclear.agile.piplanning.service.jooq.tables.records.TicketsRecord;
 
@@ -14,6 +15,7 @@ import java.util.List;
 import org.jooq.Field;
 import org.jooq.ForeignKey;
 import org.jooq.Identity;
+import org.jooq.Index;
 import org.jooq.Name;
 import org.jooq.Record;
 import org.jooq.Row5;
@@ -32,7 +34,7 @@ import org.jooq.impl.TableImpl;
 @SuppressWarnings({ "all", "unchecked", "rawtypes" })
 public class Tickets extends TableImpl<TicketsRecord> {
 
-    private static final long serialVersionUID = -1976908452;
+    private static final long serialVersionUID = -674674624;
 
     /**
      * The reference instance of <code>agile.tickets</code>
@@ -108,6 +110,11 @@ public class Tickets extends TableImpl<TicketsRecord> {
     @Override
     public Schema getSchema() {
         return Agile.AGILE;
+    }
+
+    @Override
+    public List<Index> getIndexes() {
+        return Arrays.<Index>asList(Indexes.TICKETS_BOARD_ID_IDX);
     }
 
     @Override

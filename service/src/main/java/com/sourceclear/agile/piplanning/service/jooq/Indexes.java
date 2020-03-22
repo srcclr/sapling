@@ -6,11 +6,13 @@ package com.sourceclear.agile.piplanning.service.jooq;
 
 import com.sourceclear.agile.piplanning.service.jooq.tables.FlywaySchemaHistory;
 import com.sourceclear.agile.piplanning.service.jooq.tables.InvalidatedTokens;
+import com.sourceclear.agile.piplanning.service.jooq.tables.Notifications;
 import com.sourceclear.agile.piplanning.service.jooq.tables.Solutions;
 import com.sourceclear.agile.piplanning.service.jooq.tables.Sprints;
 import com.sourceclear.agile.piplanning.service.jooq.tables.StoryRequests;
 import com.sourceclear.agile.piplanning.service.jooq.tables.TicketDeps;
 import com.sourceclear.agile.piplanning.service.jooq.tables.TicketPins;
+import com.sourceclear.agile.piplanning.service.jooq.tables.Tickets;
 
 import org.jooq.Index;
 import org.jooq.OrderField;
@@ -29,6 +31,7 @@ public class Indexes {
 
     public static final Index FLYWAY_SCHEMA_HISTORY_S_IDX = Indexes0.FLYWAY_SCHEMA_HISTORY_S_IDX;
     public static final Index INVALIDATED_TOKENS_USER_ID_IDX = Indexes0.INVALIDATED_TOKENS_USER_ID_IDX;
+    public static final Index NOTIFICATIONS_STORY_REQUEST_ID_IDX = Indexes0.NOTIFICATIONS_STORY_REQUEST_ID_IDX;
     public static final Index SOLUTIONS_BOARD_ID_IDX = Indexes0.SOLUTIONS_BOARD_ID_IDX;
     public static final Index SPRINTS_BOARD_ID_IDX = Indexes0.SPRINTS_BOARD_ID_IDX;
     public static final Index STORY_REQUESTS_FROM_TICKET_ID_IDX = Indexes0.STORY_REQUESTS_FROM_TICKET_ID_IDX;
@@ -37,6 +40,7 @@ public class Indexes {
     public static final Index STORY_REQUESTS_TO_TICKET_ID_IDX1 = Indexes0.STORY_REQUESTS_TO_TICKET_ID_IDX1;
     public static final Index TICKET_DEPS_BOARD_ID_IDX = Indexes0.TICKET_DEPS_BOARD_ID_IDX;
     public static final Index TICKET_PINS_BOARD_ID_IDX = Indexes0.TICKET_PINS_BOARD_ID_IDX;
+    public static final Index TICKETS_BOARD_ID_IDX = Indexes0.TICKETS_BOARD_ID_IDX;
 
     // -------------------------------------------------------------------------
     // [#1459] distribute members to avoid static initialisers > 64kb
@@ -45,6 +49,7 @@ public class Indexes {
     private static class Indexes0 {
         public static Index FLYWAY_SCHEMA_HISTORY_S_IDX = Internal.createIndex("flyway_schema_history_s_idx", FlywaySchemaHistory.FLYWAY_SCHEMA_HISTORY, new OrderField[] { FlywaySchemaHistory.FLYWAY_SCHEMA_HISTORY.SUCCESS }, false);
         public static Index INVALIDATED_TOKENS_USER_ID_IDX = Internal.createIndex("invalidated_tokens_user_id_idx", InvalidatedTokens.INVALIDATED_TOKENS, new OrderField[] { InvalidatedTokens.INVALIDATED_TOKENS.USER_ID }, false);
+        public static Index NOTIFICATIONS_STORY_REQUEST_ID_IDX = Internal.createIndex("notifications_story_request_id_idx", Notifications.NOTIFICATIONS, new OrderField[] { Notifications.NOTIFICATIONS.STORY_REQUEST_ID }, false);
         public static Index SOLUTIONS_BOARD_ID_IDX = Internal.createIndex("solutions_board_id_idx", Solutions.SOLUTIONS, new OrderField[] { Solutions.SOLUTIONS.BOARD_ID }, false);
         public static Index SPRINTS_BOARD_ID_IDX = Internal.createIndex("sprints_board_id_idx", Sprints.SPRINTS, new OrderField[] { Sprints.SPRINTS.BOARD_ID }, false);
         public static Index STORY_REQUESTS_FROM_TICKET_ID_IDX = Internal.createIndex("story_requests_from_ticket_id_idx", StoryRequests.STORY_REQUESTS, new OrderField[] { StoryRequests.STORY_REQUESTS.FROM_TICKET_ID }, false);
@@ -53,5 +58,6 @@ public class Indexes {
         public static Index STORY_REQUESTS_TO_TICKET_ID_IDX1 = Internal.createIndex("story_requests_to_ticket_id_idx1", StoryRequests.STORY_REQUESTS, new OrderField[] { StoryRequests.STORY_REQUESTS.TO_TICKET_ID }, false);
         public static Index TICKET_DEPS_BOARD_ID_IDX = Internal.createIndex("ticket_deps_board_id_idx", TicketDeps.TICKET_DEPS, new OrderField[] { TicketDeps.TICKET_DEPS.BOARD_ID }, false);
         public static Index TICKET_PINS_BOARD_ID_IDX = Internal.createIndex("ticket_pins_board_id_idx", TicketPins.TICKET_PINS, new OrderField[] { TicketPins.TICKET_PINS.BOARD_ID }, false);
+        public static Index TICKETS_BOARD_ID_IDX = Internal.createIndex("tickets_board_id_idx", Tickets.TICKETS, new OrderField[] { Tickets.TICKETS.BOARD_ID }, false);
     }
 }

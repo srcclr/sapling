@@ -12,21 +12,19 @@ import com.sourceclear.agile.piplanning.service.jooq.tables.records.SolutionsRec
 import java.util.Arrays;
 import java.util.List;
 
-import org.jooq.Check;
 import org.jooq.Field;
 import org.jooq.ForeignKey;
 import org.jooq.Identity;
 import org.jooq.Index;
 import org.jooq.Name;
 import org.jooq.Record;
-import org.jooq.Row6;
+import org.jooq.Row5;
 import org.jooq.Schema;
 import org.jooq.Table;
 import org.jooq.TableField;
 import org.jooq.TableOptions;
 import org.jooq.UniqueKey;
 import org.jooq.impl.DSL;
-import org.jooq.impl.Internal;
 import org.jooq.impl.TableImpl;
 
 
@@ -36,7 +34,7 @@ import org.jooq.impl.TableImpl;
 @SuppressWarnings({ "all", "unchecked", "rawtypes" })
 public class Solutions extends TableImpl<SolutionsRecord> {
 
-    private static final long serialVersionUID = -1616121640;
+    private static final long serialVersionUID = -338390276;
 
     /**
      * The reference instance of <code>agile.solutions</code>
@@ -64,17 +62,12 @@ public class Solutions extends TableImpl<SolutionsRecord> {
     /**
      * The column <code>agile.solutions.sprint_id</code>.
      */
-    public final TableField<SolutionsRecord, Long> SPRINT_ID = createField(DSL.name("sprint_id"), org.jooq.impl.SQLDataType.BIGINT, this, "");
+    public final TableField<SolutionsRecord, Long> SPRINT_ID = createField(DSL.name("sprint_id"), org.jooq.impl.SQLDataType.BIGINT.nullable(false), this, "");
 
     /**
      * The column <code>agile.solutions.id</code>.
      */
     public final TableField<SolutionsRecord, Long> ID = createField(DSL.name("id"), org.jooq.impl.SQLDataType.BIGINT.nullable(false).defaultValue(org.jooq.impl.DSL.field("nextval('solutions_id_seq'::regclass)", org.jooq.impl.SQLDataType.BIGINT)), this, "");
-
-    /**
-     * The column <code>agile.solutions.unassigned</code>.
-     */
-    public final TableField<SolutionsRecord, Boolean> UNASSIGNED = createField(DSL.name("unassigned"), org.jooq.impl.SQLDataType.BOOLEAN.nullable(false).defaultValue(org.jooq.impl.DSL.field("false", org.jooq.impl.SQLDataType.BOOLEAN)), this, "");
 
     /**
      * The column <code>agile.solutions.preview</code>.
@@ -157,13 +150,6 @@ public class Solutions extends TableImpl<SolutionsRecord> {
     }
 
     @Override
-    public List<Check<SolutionsRecord>> getChecks() {
-        return Arrays.<Check<SolutionsRecord>>asList(
-              Internal.createCheck(this, DSL.name("solutions_unassigned"), "((unassigned OR (sprint_id IS NOT NULL)))", true)
-        );
-    }
-
-    @Override
     public Solutions as(String alias) {
         return new Solutions(DSL.name(alias), this);
     }
@@ -190,11 +176,11 @@ public class Solutions extends TableImpl<SolutionsRecord> {
     }
 
     // -------------------------------------------------------------------------
-    // Row6 type methods
+    // Row5 type methods
     // -------------------------------------------------------------------------
 
     @Override
-    public Row6<Long, Long, Long, Long, Boolean, Boolean> fieldsRow() {
-        return (Row6) super.fieldsRow();
+    public Row5<Long, Long, Long, Long, Boolean> fieldsRow() {
+        return (Row5) super.fieldsRow();
     }
 }
