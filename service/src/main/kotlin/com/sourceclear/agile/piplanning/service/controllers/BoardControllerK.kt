@@ -190,11 +190,12 @@ open class BoardControllerK @Autowired constructor(
     // at this point there is no to-ticket
     s.store()
 
-    val n = create.newRecord(NOTIFICATIONS)
-    n.type = NotificationO.IncomingStoryRequest::class.simpleName
-    n.storyRequestId = s.id
-    n.recipientId = s.toBoardId
-    n.store()
+    create.newRecord(NOTIFICATIONS).let {
+      it.type = NotificationO.IncomingStoryRequest::class.simpleName
+      it.storyRequestId = s.id
+      it.recipientId = s.toBoardId
+      it.store()
+    }
   }
 
   @PutMapping("/board/{boardId}/request/{requestId}")
@@ -277,6 +278,13 @@ open class BoardControllerK @Autowired constructor(
       it.store()
     }
 
+    create.newRecord(NOTIFICATIONS).let {
+      it.type = NotificationO.StoryRequestAccepted::class.simpleName
+      it.storyRequestId = s.id
+      it.recipientId = s.fromBoardId
+      it.store()
+    }
+
     create.update(NOTIFICATIONS)
         .set(NOTIFICATIONS.ACKNOWLEDGED, true)
         .where(NOTIFICATIONS.STORY_REQUEST_ID.eq(requestId).and(NOTIFICATIONS.TYPE.eq(NotificationO.IncomingStoryRequest::class.simpleName)))
@@ -318,6 +326,13 @@ open class BoardControllerK @Autowired constructor(
           .execute();
     }
 
+    create.newRecord(NOTIFICATIONS).let {
+      it.type = NotificationO.StoryRequestRejected::class.simpleName
+      it.storyRequestId = s.id
+      it.recipientId = s.fromBoardId
+      it.store()
+    }
+
     create.update(NOTIFICATIONS)
         .set(NOTIFICATIONS.ACKNOWLEDGED, true)
         .where(NOTIFICATIONS.STORY_REQUEST_ID.eq(requestId).and(NOTIFICATIONS.TYPE.eq(NotificationO.IncomingStoryRequest::class.simpleName)))
@@ -356,6 +371,13 @@ open class BoardControllerK @Autowired constructor(
     create.delete(TICKETS)
         .where(TICKETS.ID.eq(ticket))
         .execute();
+
+    create.newRecord(NOTIFICATIONS).let {
+      it.type = NotificationO.StoryRequestWithdrawn::class.simpleName
+      it.storyRequestId = s.id
+      it.recipientId = s.toBoardId
+      it.store()
+    }
   }
 
   @PostMapping("/board/{boardId}/request/{requestId}/resubmit")
@@ -381,6 +403,13 @@ open class BoardControllerK @Autowired constructor(
     }
     s.notes = addToNote(s.notes, b.name, input.notes)
     s.store()
+
+    create.newRecord(NOTIFICATIONS).let {
+      it.type = NotificationO.StoryRequestResubmitted::class.simpleName
+      it.storyRequestId = s.id
+      it.recipientId = s.toBoardId
+      it.store()
+    }
   }
 
   @GetMapping("/boards/dependencies")

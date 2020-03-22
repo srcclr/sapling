@@ -67,6 +67,39 @@ sealed class NotificationO(open val id: Long) {
       val description: String,
       val points: Int,
       val notes: String) : NotificationO(id)
+
+  @JsonTypeName("StoryRequestAccepted")
+  data class StoryRequestAccepted(
+      override val id: Long,
+      val sender: String,
+      val description: String,
+      val notes: String) : NotificationO(id)
+
+  @JsonTypeName("StoryRequestRejected")
+  data class StoryRequestRejected(
+      override val id: Long,
+      val sender: String,
+      val description: String,
+      val notes: String) : NotificationO(id)
+
+  @JsonTypeName("StoryRequestWithdrawn")
+  data class StoryRequestWithdrawn(
+      override val id: Long,
+      val sender: String,
+      val description: String,
+      val notes: String) : NotificationO(id)
+
+  // Exactly the same as incoming
+  @JsonTypeName("StoryRequestResubmitted")
+  data class StoryRequestResubmitted(
+      override val id: Long,
+      val storyRequestId: Long,
+      val sender: String,
+      val sprint: String,
+      val epic: String,
+      val description: String,
+      val points: Int,
+      val notes: String) : NotificationO(id)
 }
 
 data class StoryRequestO(
