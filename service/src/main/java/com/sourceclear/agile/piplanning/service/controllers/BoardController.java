@@ -9,7 +9,6 @@ import com.fasterxml.jackson.module.kotlin.KotlinModule;
 import com.sourceclear.agile.piplanning.objects.BoardI;
 import com.sourceclear.agile.piplanning.objects.BoardL;
 import com.sourceclear.agile.piplanning.objects.BoardO;
-import com.sourceclear.agile.piplanning.objects.NotificationO;
 import com.sourceclear.agile.piplanning.objects.Soln;
 import com.sourceclear.agile.piplanning.objects.SprintE;
 import com.sourceclear.agile.piplanning.objects.SprintO;
@@ -20,19 +19,17 @@ import com.sourceclear.agile.piplanning.objects.TicketO;
 import com.sourceclear.agile.piplanning.service.components.SolverProperties;
 import com.sourceclear.agile.piplanning.service.entities.BaseEntity;
 import com.sourceclear.agile.piplanning.service.entities.Board;
-import com.sourceclear.agile.piplanning.service.entities.Dependency;
 import com.sourceclear.agile.piplanning.service.entities.Epic;
-import com.sourceclear.agile.piplanning.service.entities.Pin;
 import com.sourceclear.agile.piplanning.service.entities.Solution;
 import com.sourceclear.agile.piplanning.service.entities.Sprint;
 import com.sourceclear.agile.piplanning.service.entities.Ticket;
 import com.sourceclear.agile.piplanning.service.entities.login.User;
-import com.sourceclear.agile.piplanning.service.jooq.tables.records.StoryRequestsRecord;
 import com.sourceclear.agile.piplanning.service.repositories.BoardRepository;
 import com.sourceclear.agile.piplanning.service.repositories.EpicRepository;
 import com.sourceclear.agile.piplanning.service.repositories.SolutionRepository;
 import com.sourceclear.agile.piplanning.service.repositories.SprintRepository;
 import com.sourceclear.agile.piplanning.service.repositories.TicketRepository;
+import com.sourceclear.agile.piplanning.service.services.Boards;
 import com.sourceclear.agile.piplanning.service.services.ClingoService;
 import kotlin.Pair;
 import org.apache.commons.csv.CSVFormat;
@@ -68,7 +65,6 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -87,13 +83,9 @@ import static com.sourceclear.agile.piplanning.service.configs.Exceptions.intern
 import static com.sourceclear.agile.piplanning.service.configs.Exceptions.notAcceptable;
 import static com.sourceclear.agile.piplanning.service.configs.Exceptions.notFound;
 import static com.sourceclear.agile.piplanning.service.jooq.tables.JiraCsv.JIRA_CSV;
-import static com.sourceclear.agile.piplanning.service.jooq.tables.Notifications.NOTIFICATIONS;
 import static com.sourceclear.agile.piplanning.service.jooq.tables.StoryRequests.STORY_REQUESTS;
-import static java.util.stream.Collectors.groupingBy;
-import static java.util.stream.Collectors.mapping;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
-import static org.jooq.impl.DSL.mergeInto;
 import static org.jooq.impl.DSL.select;
 import static org.jooq.impl.DSL.selectOne;
 
@@ -120,6 +112,7 @@ public class BoardController {
   private final ClingoService clingoServiceNew;
   private final SolverProperties solverProperties;
   private final DefaultDSLContext create;
+  private final Boards boards;
 
   /////////////////////////////// Constructors \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 
@@ -132,7 +125,8 @@ public class BoardController {
                          ClingoService clingoService,
                          ClingoService clingoServiceNew,
                          SolverProperties solverProperties,
-                         DefaultDSLContext create) {
+                         DefaultDSLContext create,
+                         Boards boards) {
     this.boardRepository = boardRepository;
     this.epicRepository = epicRepository;
     this.solutionRepository = solutionRepository;
@@ -142,6 +136,7 @@ public class BoardController {
     this.clingoServiceNew = clingoServiceNew;
     this.solverProperties = solverProperties;
     this.create = create;
+    this.boards = boards;
   }
 
   ////////////////////////////////// Methods \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -538,7 +533,7 @@ public class BoardController {
       solutionRepository.deletePreviewSolution(board);
       solutionRepository.saveAll(solution);
 
-      return answers.apply(reconstructBoard(solution, board));
+      return answers.apply(boards.reconstruct(solution, board.getId()));
     };
   }
 
@@ -576,7 +571,7 @@ public class BoardController {
     solutionRepository.deleteRealSolution(board);
     solutionRepository.saveAll(solution);
 
-    return reconstructBoard(solution, board);
+    return boards.reconstruct(solution, board.getId());
   }
 
   private void checkUnsat(Set<Soln> soln) {
@@ -605,86 +600,9 @@ public class BoardController {
     } else {
       board = rawAssignments.iterator().next().getBoard();
     }
-    return reconstructBoard(rawAssignments, board);
+    return boards.reconstruct(rawAssignments, board.getId());
   }
 
-  /**
-   * Given a solution for the given board in flattened form, constructs the nested version
-   */
-  private BoardO reconstructBoard(Set<Solution> rawAssignments, Board board) {
-
-    List<NotificationO> notifications = create.selectFrom(NOTIFICATIONS)
-        .where(NOTIFICATIONS.RECIPIENT_ID.eq(board.getId()).and(NOTIFICATIONS.ACKNOWLEDGED.isFalse()))
-        .fetch(r -> Notifications.INSTANCE.create(r, create));
-
-    var resultSprints = new ArrayList<SprintO>();
-    var unassigned = new ArrayList<TicketO>();
-    var result = new BoardO(board.getId(), board.getName(), board.getOwner().getUsername(),
-        resultSprints, unassigned, notifications);
-
-    // Duplicates are identical so we can discard them.
-    var assignedTicketsById = rawAssignments.stream()
-        .filter(s -> s.getSprint().isPresent())
-        .map(Solution::getTicket)
-        .collect(Collectors.toMap(BaseEntity::getId, t -> t, (a, b) -> a));
-
-    Long[] allTicketIds = rawAssignments.stream()
-        .map(a -> a.getTicket().getId())
-        .distinct()
-        .toArray(Long[]::new);
-
-    Map<Long, List<StoryRequestsRecord>> storyRequestsbyTicketId = create.selectFrom(STORY_REQUESTS)
-        .where(STORY_REQUESTS.FROM_TICKET_ID.in(allTicketIds))
-        .stream()
-        .collect(groupingBy(StoryRequestsRecord::getFromTicketId));
-
-    Set<Long> ticketsBlockingCrossBoard = create.select(STORY_REQUESTS.TO_TICKET_ID)
-        .from(STORY_REQUESTS)
-        .where(STORY_REQUESTS.TO_TICKET_ID.in(allTicketIds))
-        .stream()
-        .map(r -> r.get(STORY_REQUESTS.TO_TICKET_ID))
-        .collect(Collectors.toSet());
-
-    Map<Long, List<Long>> assignments = rawAssignments.stream()
-        .filter(s -> s.getSprint().isPresent())
-        .collect(
-            groupingBy(a -> a.getSprint().get().getId(),
-                mapping(a -> a.getTicket().getId(), toList())));
-
-    // Shouldn't require a group by if invariants hold
-    Map<Long, Long> pins = board.getPins().stream().collect(Collectors.toMap(Pin::getTicketId, Pin::getSprintId));
-
-    Map<Long, Set<Long>> deps = board.getDeps().stream()
-        .collect(Collectors.groupingBy(Dependency::getFromTicketId,
-            Collectors.mapping(Dependency::getToTicketId, Collectors.toSet())));
-
-    List<SprintO> sprints = board.getSprints().stream()
-        // Correct order
-        .sorted(Comparator.comparingInt(Sprint::getOrdinal))
-        .map(sprint -> new SprintO(sprint.getId(), sprint.getName(), sprint.getGoal(), sprint.getCapacity(),
-            assignments.getOrDefault(sprint.getId(), Collections.emptyList()).stream()
-                .map(assignedTicketsById::get)
-                .map(t -> t.toModel(pins.get(t.getId()), deps.getOrDefault(t.getId(), new HashSet<>()),
-                    storyRequestsbyTicketId.getOrDefault(t.getId(), new ArrayList<>()),
-                    ticketsBlockingCrossBoard.contains(t.getId())))
-                // Ensure ordering remains stable
-                .sorted(Comparator.comparingLong(TicketO::getId))
-                .collect(toList())))
-        .collect(toList());
-
-    resultSprints.addAll(sprints);
-
-    rawAssignments.stream()
-        .filter(s -> s.getSprint().isEmpty())
-        .map(Solution::getTicket)
-        .map(t -> t.toModel(pins.get(t.getId()), deps.getOrDefault(t.getId(), new HashSet<>()),
-            storyRequestsbyTicketId.getOrDefault(t.getId(), new ArrayList<>()),
-            ticketsBlockingCrossBoard.contains(t.getId())))
-        .sorted(Comparator.comparingLong(TicketO::getId))
-        .forEach(unassigned::add);
-
-    return result;
-  }
 
   private Map<String, Integer> importCsv(byte[] csv, long boardId, boolean keepIssueKey) {
 
