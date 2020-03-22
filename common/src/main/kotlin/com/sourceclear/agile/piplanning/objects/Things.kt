@@ -59,6 +59,7 @@ sealed class NotificationO(open val id: Long) {
   @JsonTypeName("IncomingStoryRequest")
   data class IncomingStoryRequest(
       override val id: Long,
+      val storyRequestId: Long,
       val sender: String,
       val sprint: String,
       val epic: String,

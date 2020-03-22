@@ -13,7 +13,7 @@ import org.junit.Test
 class NotificationsTest {
   @Test
   fun testDeserialization() {
-    val value = NotificationO.IncomingStoryRequest(1L, "sender", "sprint", "epic", "descripton", 1, "notes")
+    val value = NotificationO.IncomingStoryRequest(1L, 2L , "sender", "sprint", "epic", "descripton", 1, "notes")
     val s = Notifications.mapper.writeValueAsString(value)
     val value1 = Notifications.mapper.readValue<NotificationO.IncomingStoryRequest>(s)
     assertTrue(s.contains("\"@type\":\"" + NotificationO.IncomingStoryRequest::class.simpleName + "\""))
