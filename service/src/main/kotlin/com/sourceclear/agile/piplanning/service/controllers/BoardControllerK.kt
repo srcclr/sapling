@@ -62,6 +62,7 @@ open class BoardControllerK @Autowired constructor(
   // Epics
   //
 
+  @Deprecated("never used and subsumed by main endpoint")
   @GetMapping("/epic/{epicId}")
   @Transactional(readOnly = true)
   open fun getEpic(@PathVariable epicId: Long): ResponseEntity<EpicO> {
@@ -69,6 +70,7 @@ open class BoardControllerK @Autowired constructor(
     return ResponseEntity.ok(EpicO(e.id, e.name, e.priority))
   }
 
+  @Deprecated("subsumed by main endpoint")
   @GetMapping("/board/{boardId}/epics")
   @Transactional
   open fun listEpics(@PathVariable boardId: Long): List<EpicO> {

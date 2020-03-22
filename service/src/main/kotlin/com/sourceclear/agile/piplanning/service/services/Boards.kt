@@ -1,6 +1,7 @@
 package com.sourceclear.agile.piplanning.service.services
 
 import com.sourceclear.agile.piplanning.objects.BoardO
+import com.sourceclear.agile.piplanning.objects.EpicO
 import com.sourceclear.agile.piplanning.objects.NotificationO
 import com.sourceclear.agile.piplanning.objects.SprintO
 import com.sourceclear.agile.piplanning.objects.StoryRequestO
@@ -8,6 +9,8 @@ import com.sourceclear.agile.piplanning.objects.TicketO
 import com.sourceclear.agile.piplanning.service.configs.Exceptions
 import com.sourceclear.agile.piplanning.service.entities.Solution
 import com.sourceclear.agile.piplanning.service.jooq.tables.Boards.BOARDS
+import com.sourceclear.agile.piplanning.service.jooq.tables.Epics
+import com.sourceclear.agile.piplanning.service.jooq.tables.Epics.EPICS
 import com.sourceclear.agile.piplanning.service.jooq.tables.Notifications.NOTIFICATIONS
 import com.sourceclear.agile.piplanning.service.jooq.tables.Sprints.SPRINTS
 import com.sourceclear.agile.piplanning.service.jooq.tables.StoryRequests.STORY_REQUESTS
@@ -56,6 +59,11 @@ open class BoardsImpl @Autowired constructor(
 
     // Derived
 
+    val epics = create.selectFrom(EPICS)
+        .where(EPICS.BOARD_ID.eq(boardId))
+        .orderBy(EPICS.PRIORITY, EPICS.ID)
+        .fetch { r -> EpicO(id = r.id, name = r.name, priority = r.priority) }
+
     val assignmentsBySprintId = rawAssignments
         .filter { it.sprint.isPresent }
         .groupBy({ it.sprint.get().id!! }) { it.ticket.id!! }
@@ -95,6 +103,7 @@ open class BoardsImpl @Autowired constructor(
         id = boardId,
         name = board.name,
         owner = owner,
+        epics = epics,
         sprints = assignedSprints,
         unassigned = backlog,
         notifications = notifications)

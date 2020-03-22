@@ -32,6 +32,7 @@ data class BoardO(
     val name: String,
     val owner: String,
     val sprints: List<SprintO>,
+    val epics: List<EpicO>,
     val unassigned: List<TicketO>,
     val notifications: List<NotificationO>)
 
