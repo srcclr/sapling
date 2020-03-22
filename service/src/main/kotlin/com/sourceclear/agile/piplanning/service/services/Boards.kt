@@ -6,7 +6,6 @@ import com.sourceclear.agile.piplanning.objects.SprintO
 import com.sourceclear.agile.piplanning.objects.StoryRequestO
 import com.sourceclear.agile.piplanning.objects.TicketO
 import com.sourceclear.agile.piplanning.service.configs.Exceptions
-import com.sourceclear.agile.piplanning.service.controllers.Notifications.create
 import com.sourceclear.agile.piplanning.service.entities.Solution
 import com.sourceclear.agile.piplanning.service.jooq.tables.Boards.BOARDS
 import com.sourceclear.agile.piplanning.service.jooq.tables.Notifications.NOTIFICATIONS
@@ -28,7 +27,8 @@ interface Boards {
 
 @Service
 open class BoardsImpl @Autowired constructor(
-    private val create: DefaultDSLContext) : Boards {
+    private val create: DefaultDSLContext,
+    private val notifications: Notifications) : Boards {
 
   /**
    * Given a solution for the given board in flattened form, constructs the nested version
@@ -89,7 +89,7 @@ open class BoardsImpl @Autowired constructor(
 
     val notifications: List<NotificationO> = create.selectFrom(NOTIFICATIONS)
         .where(NOTIFICATIONS.RECIPIENT_ID.eq(boardId).and(NOTIFICATIONS.ACKNOWLEDGED.isFalse))
-        .fetch { r -> create(r, create) }
+        .fetch { r -> notifications.create(r, create) }
 
     return BoardO(
         id = boardId,

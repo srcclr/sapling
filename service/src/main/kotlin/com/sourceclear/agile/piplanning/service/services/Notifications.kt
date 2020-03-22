@@ -1,4 +1,4 @@
-package com.sourceclear.agile.piplanning.service.controllers
+package com.sourceclear.agile.piplanning.service.services
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.KotlinModule
@@ -6,11 +6,17 @@ import com.sourceclear.agile.piplanning.objects.NotificationO
 import com.sourceclear.agile.piplanning.service.jooq.tables.StoryRequests.STORY_REQUESTS
 import com.sourceclear.agile.piplanning.service.jooq.tables.records.NotificationsRecord
 import org.jooq.DSLContext
+import org.springframework.stereotype.Service
 
-object Notifications {
+interface Notifications {
+  fun create(n: NotificationsRecord, create: DSLContext): NotificationO;
+}
+
+@Service
+class NotificationsImpl : Notifications {
   val mapper = ObjectMapper().registerModule(KotlinModule())
 
-  fun create(n: NotificationsRecord, create: DSLContext): NotificationO {
+  override fun create(n: NotificationsRecord, create: DSLContext): NotificationO {
     return when (n.type) {
       NotificationO.IncomingStoryRequest::class.simpleName -> {
         create.select(
