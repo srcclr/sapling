@@ -76,6 +76,7 @@ open class BoardsImpl @Autowired constructor(
               capacity = it.capacity,
               tickets = assignmentsBySprintId.getOrDefault(it.id, listOf())
                   .map { ticketsById[it]!! }
+                  .sortedBy { it.id }
                   .map {
                     createTicket(ticket = it, pin = pinsByTicketId[it.id],
                         deps = depsByTicketId.getOrDefault(it.id, setOf()),
@@ -87,6 +88,7 @@ open class BoardsImpl @Autowired constructor(
         }
 
     val backlog = (ticketsById.keys subtract rawAssignments.map { it.ticket.id!! })
+        .sorted()
         .map {
           createTicket(ticket = ticketsById.getValue(it),
               pin = pinsByTicketId[it],
