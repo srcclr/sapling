@@ -434,8 +434,8 @@ open class BoardControllerK @Autowired constructor(
                 .join(b2).onKey(STORY_REQUESTS.TO_BOARD_ID)
                 .join(s1).on(b1.ID.eq(s1.BOARD_ID).and(sr.FROM_TICKET_ID.eq(s1.TICKET_ID)))
                 .join(s2).on(b2.ID.eq(s2.BOARD_ID).and(sr.TO_TICKET_ID.eq(s2.TICKET_ID)))
-                .leftJoin(sp1).on(s1.SPRINT_ID.eq(sp1.ID))
-                .leftJoin(sp2).on(s2.SPRINT_ID.eq(sp2.ID)))
+                .join(sp1).on(s1.SPRINT_ID.eq(sp1.ID))
+                .join(sp2).on(s2.SPRINT_ID.eq(sp2.ID)))
             .where(sr.STATE.eq(Accepted.name))
             .fetch { (b1, b2, sp1, sp2) ->
               CrossBoardDep(BoardD(b1, sp1), BoardD(b2, sp2))
