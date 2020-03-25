@@ -24,11 +24,13 @@ The tool Sapling allows participants to do SAFe PI planning in a remote and dist
 - Context setting with all members of the [Agile Release Train](https://www.scaledagileframework.com/agile-release-train/) for product and architecture roadmap
 - Breakout into scrum teams using [Zoom&#39;s breakout rooms](https://support.zoom.us/hc/en-us/articles/206476313-Managing-Video-Breakout-Rooms) feature
   - [Product Owner](https://www.scaledagileframework.com/product-owner/) shares planning context describing features in priority order – this feeds into the &quot;Epic&quot; list in Sapling
+  - Use the &quot;Upload CSV&quot; to import existing stories from any Agile Project Management tool like JIRA. 
   - Create sprints and fill in the &quot;Capacity&quot; of the team
-  - Breakdown the epic by creating &quot;Stories&quot; in the &quot;Backlog&quot; and assigning it to the epic
+  - Breakdown the epic by creating &quot;Sprint goals&quot; and adding &quot;Stories&quot; in the &quot;Backlog&quot; by assigning it to the epic
   - Create story dependencies using the &quot;Dependencies&quot; section in the story.
-  - Use the &quot;Auto-arrange&quot; feature to automatically fill the stories created into sprints based on epic priority, story dependencies, story points and capacity
+  - Use the &quot;Auto-arrange&quot; feature to automatically fill the stories created into sprints based on epic priority, story dependencies, story points and capacity. &quot;Current load&quot; and &quot;Load left&quot; give an overview of the how much Sprints are filled up
   - &quot;Pin&quot; a story to a particular sprint if you don&#39;t want the auto-arrange feature to move the story
+  - By choosing the ellipses option on a story, add a &quot;Cross board dependency&quot; by choosing the board, epic and sprint. The receiving board will get a notification about the request and can choose to &quot;Accept&quot; or &quot;Reject&quot; the request
 - [Scrum of Scrums](https://www.scaledagileframework.com/program-increment/)
   - While the teams are breaking down features, the SMs can move back to the main meeting to discuss progress and do check-ins
   - RTE being the host can also join the different rooms to observe any discussion if required
