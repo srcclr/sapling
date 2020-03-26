@@ -25,6 +25,7 @@ import com.sourceclear.agile.piplanning.service.jooq.tables.Notifications.NOTIFI
 import com.sourceclear.agile.piplanning.service.jooq.tables.Solutions.SOLUTIONS
 import com.sourceclear.agile.piplanning.service.jooq.tables.Sprints.SPRINTS
 import com.sourceclear.agile.piplanning.service.jooq.tables.StoryRequests.STORY_REQUESTS
+import com.sourceclear.agile.piplanning.service.jooq.tables.TicketPins.TICKET_PINS
 import com.sourceclear.agile.piplanning.service.jooq.tables.Tickets.TICKETS
 import com.sourceclear.agile.piplanning.service.jooq.tables.records.BoardsRecord
 import com.sourceclear.agile.piplanning.service.jooq.tables.records.StoryRequestsRecord
@@ -34,6 +35,7 @@ import com.sourceclear.agile.piplanning.service.repositories.SprintRepository
 import com.sourceclear.agile.piplanning.service.repositories.TicketRepository
 import org.jooq.impl.DSL
 import org.jooq.impl.DSL.max
+import org.jooq.impl.DSL.select
 import org.jooq.impl.DefaultDSLContext
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.http.ResponseEntity
@@ -140,6 +142,29 @@ open class BoardControllerK @Autowired constructor(
     val t = ticketRepository.findById(pin.ticketId).orElseThrow(notFound)!!
     b.pins.removeIf { it.ticketId == pin.ticketId }
     b.pins.add(Pin(s.id, t.id))
+  }
+
+  @PostMapping("/board/{boardId}/pins/all")
+  @Transactional
+  open fun pinAll(@PathVariable boardId: Long) {
+    create.fetchExists(BOARDS, BOARDS.ID.eq(boardId)) || throw notFound
+
+    create.insertInto(TICKET_PINS, TICKET_PINS.TICKET_ID, TICKET_PINS.SPRINT_ID, TICKET_PINS.BOARD_ID)
+        .select(
+            select(SOLUTIONS.TICKET_ID, SOLUTIONS.SPRINT_ID, SOLUTIONS.BOARD_ID)
+                .from(SOLUTIONS)
+                .where(SOLUTIONS.BOARD_ID.eq(boardId)))
+        .execute()
+  }
+
+  @DeleteMapping("/board/{boardId}/pins/all")
+  @Transactional
+  open fun unpinAll(@PathVariable boardId: Long) {
+    create.fetchExists(BOARDS, BOARDS.ID.eq(boardId)) || throw notFound
+
+    create.delete(TICKET_PINS)
+        .where(TICKET_PINS.BOARD_ID.eq(boardId))
+        .execute()
   }
 
   @DeleteMapping("/board/{boardId}/pins")
