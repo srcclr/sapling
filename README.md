@@ -9,6 +9,10 @@ Create an account or use these credentials:
 username: `demo@example.com`<br/>
 password: `test`
 
+## Presentation @ [RCoSE2020](http://www.continuous-se.org/RCoSE2020/)
+
+[![Automating Continuous Planning in SAFe](http://img.youtube.com/vi/YRx6U-CHqsU/0.jpg)](http://www.youtube.com/watch?v=YRx6U-CHqsU)
+
 ## Using Sapling during [**PI planning**](https://www.scaledagileframework.com/pi-planning/)
 
 The tool Sapling allows participants to do SAFe PI planning in a remote and distributed fashion in conjunction with video conferencing tools such as Zoom. Here is a sample agenda that explains how to use Sapling and Zoom.
