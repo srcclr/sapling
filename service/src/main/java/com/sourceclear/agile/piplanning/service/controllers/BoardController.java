@@ -37,7 +37,6 @@ import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVPrinter;
 import org.apache.commons.csv.CSVRecord;
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
 import org.jooq.impl.DefaultDSLContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -371,7 +370,7 @@ public class BoardController {
   @GetMapping("/board/{boardId}")
   @Transactional(readOnly = true)
   public ResponseEntity<BoardO> getSolution(@PathVariable long boardId) {
-    return ResponseEntity.ok(useCurrentSolution(boardId));
+    return ResponseEntity.ok(boards.useCurrentSolution(boardId));
   }
 
   @PostMapping("/board/{boardId}")
@@ -383,7 +382,7 @@ public class BoardController {
   @GetMapping("/board/{boardId}/preview")
   @Transactional(readOnly = true)
   public ResponseEntity<BoardO> getPreview(@PathVariable long boardId) {
-    return ResponseEntity.ok(useCurrentPreview(boardId));
+    return ResponseEntity.ok(boards.useCurrentPreview(boardId));
   }
 
   @PostMapping(value = "/board/{boardId}/preview", produces = "application/x-ndjson")
@@ -577,29 +576,6 @@ public class BoardController {
     }
   }
 
-  private BoardO useCurrentSolution(long boardId) {
-    return useCurrentBoard(boardId, solutionRepository.findCurrentSolution(boardId));
-  }
-
-  private BoardO useCurrentPreview(long boardId) {
-    return useCurrentBoard(boardId, solutionRepository.findCurrentPreview(boardId));
-  }
-
-  @NotNull
-  private BoardO useCurrentBoard(long boardId, Set<Solution> rawAssignments) {
-    Board board;
-    if (rawAssignments.isEmpty()) {
-      // It's only possible that there's no solution when the board is empty.
-      // In that case, there won't be any associated things.
-      board = boardRepository.findById(boardId)
-          .orElseThrow(notFound);
-    } else {
-      board = rawAssignments.iterator().next().getBoard();
-    }
-    return boards.reconstruct(rawAssignments, board.getId());
-  }
-
-
   private Map<String, Integer> importCsv(byte[] csv, long boardId, boolean keepIssueKey) {
 
     Board board = boardRepository.findById(boardId)
@@ -676,7 +652,7 @@ public class BoardController {
   }
 
   private List<TicketCD> loadCsvOutput(@PathVariable long boardId) {
-    BoardO solution = useCurrentSolution(boardId);
+    BoardO solution = boards.useCurrentSolution(boardId);
 
     Map<Long, String> epicNames = boardRepository.findById(boardId)
         .orElseThrow(notFound)

@@ -65,6 +65,7 @@ public class WebSecurityConfig extends WebSecurityConfigurerAdapter {
         .authorizeRequests()
         .antMatchers("/register").permitAll()
         .antMatchers("/login").permitAll()
+        .antMatchers("/ws").permitAll() // TODO
         .antMatchers("/actuator/**").permitAll() // spring-boot actuator endpoints - exposed on a private port
         .anyRequest().authenticated()
         .and()

@@ -9,7 +9,6 @@ import com.sourceclear.agile.piplanning.objects.TicketO
 import com.sourceclear.agile.piplanning.service.configs.Exceptions
 import com.sourceclear.agile.piplanning.service.entities.Solution
 import com.sourceclear.agile.piplanning.service.jooq.tables.Boards.BOARDS
-import com.sourceclear.agile.piplanning.service.jooq.tables.Epics
 import com.sourceclear.agile.piplanning.service.jooq.tables.Epics.EPICS
 import com.sourceclear.agile.piplanning.service.jooq.tables.Notifications.NOTIFICATIONS
 import com.sourceclear.agile.piplanning.service.jooq.tables.Sprints.SPRINTS
@@ -20,18 +19,43 @@ import com.sourceclear.agile.piplanning.service.jooq.tables.Tickets.TICKETS
 import com.sourceclear.agile.piplanning.service.jooq.tables.Users.USERS
 import com.sourceclear.agile.piplanning.service.jooq.tables.records.StoryRequestsRecord
 import com.sourceclear.agile.piplanning.service.jooq.tables.records.TicketsRecord
+import com.sourceclear.agile.piplanning.service.repositories.SolutionRepository
 import org.jooq.impl.DefaultDSLContext
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Service
 
 interface Boards {
   fun reconstruct(rawAssignments: Set<Solution>, boardId: Long): BoardO
+  fun useCurrentSolution(boardId: Long): BoardO
+  fun useCurrentPreview(boardId: Long): BoardO
 }
 
 @Service
 open class BoardsImpl @Autowired constructor(
     private val create: DefaultDSLContext,
+    private val solutionRepository: SolutionRepository,
     private val notifications: Notifications) : Boards {
+
+
+  override fun useCurrentSolution(boardId: Long): BoardO {
+    return useCurrentBoard(boardId, solutionRepository.findCurrentSolution(boardId))
+  }
+
+  override fun useCurrentPreview(boardId: Long): BoardO {
+    return useCurrentBoard(boardId, solutionRepository.findCurrentPreview(boardId))
+  }
+
+  private fun useCurrentBoard(boardId: Long, rawAssignments: Set<Solution>): BoardO {
+    val board = if (rawAssignments.isEmpty()) {
+      // It's only possible that there's no solution when the board is empty.
+      // In that case, there won't be any associated things.
+      create.selectFrom(BOARDS).where(BOARDS.ID.eq(boardId)).fetchOne().id ?: throw Exceptions.notFound
+    } else {
+      rawAssignments.iterator().next().board.id
+    }
+    return reconstruct(rawAssignments, board)
+  }
+
 
   /**
    * Given a solution for the given board in flattened form, constructs the nested version
