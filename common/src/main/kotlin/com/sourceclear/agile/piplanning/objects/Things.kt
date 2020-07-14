@@ -121,7 +121,7 @@ data class StoryRequestI(
     val storyPoints: Int,
     val storyEpicId: Long,
     val storySprintId: Long,
-    val notes: String
+    val notes: String = ""
 )
 
 enum class SRState {
