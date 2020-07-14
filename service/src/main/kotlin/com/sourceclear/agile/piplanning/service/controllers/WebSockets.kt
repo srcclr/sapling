@@ -1,15 +1,14 @@
 package com.sourceclear.agile.piplanning.service.controllers
 
 import com.fasterxml.jackson.databind.ObjectMapper
-import com.fasterxml.jackson.datatype.jdk8.Jdk8Module
 import com.fasterxml.jackson.module.kotlin.KotlinModule
 import com.fasterxml.jackson.module.kotlin.readValue
 import com.sourceclear.agile.piplanning.objects.BoardO
 import com.sourceclear.agile.piplanning.objects.MessageReq
 import com.sourceclear.agile.piplanning.objects.MessageRes
 import com.sourceclear.agile.piplanning.service.services.Boards
-import org.aspectj.bridge.Message
 import org.jooq.impl.DefaultDSLContext
+import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Component
 import org.springframework.web.socket.CloseStatus
@@ -23,29 +22,28 @@ class WebSockets @Autowired constructor(
     val boards: Boards
 ) : AbstractWebSocketHandler() {
 
-  val lock = Object()
-  val connections = mutableMapOf<Long, MutableList<WebSocketSession>>()
-  val objectMapper = ObjectMapper().registerModule(KotlinModule())!!
+  private val LOGGER = LoggerFactory.getLogger(WebSockets::class.java)
+  private val lock = Object()
+  private val connections = mutableMapOf<Long, MutableList<WebSocketSession>>()
+  private val objectMapper = ObjectMapper().registerModule(KotlinModule())!!
 
   override fun afterConnectionClosed(session: WebSocketSession, status: CloseStatus) {
-    synchronized(lock) {
-      connections.forEach { e ->
-        e.value.removeIf { s ->
-          s.id != session.id
-        }
-      }
-    }
+    forgetSession(session)
   }
 
   override fun handleTextMessage(session: WebSocketSession, message: TextMessage) {
-    val message = objectMapper.readValue<MessageReq>(message.asBytes())
-    when (message) {
+    when (val msg = objectMapper.readValue<MessageReq>(message.asBytes())) {
+      is MessageReq.Register -> {
+        session.sendMessage(TextMessage(objectMapper.writeValueAsBytes(MessageRes.Welcome(session.id))))
+      }
       is MessageReq.OpenedBoard -> {
         synchronized(lock) {
-          connections.getOrPut(message.board) { mutableListOf() }.add(session)
+          forgetSession(session)
+          connections.getOrPut(msg.board) { mutableListOf() }.add(session)
+          LOGGER.debug("user connected to board {}", msg.board)
         }
         create.transaction { _ ->
-          broadcastBoardUpdate(boards.useCurrentSolution(message.board))
+          broadcastBoardUpdate(boards.useCurrentSolution(msg.board))
         }
       }
       is MessageReq.EditingSprint -> TODO()
@@ -57,6 +55,19 @@ class WebSockets @Autowired constructor(
   fun broadcastBoardUpdate(board: BoardO) {
     connections.get(board.id)!!.forEach { session ->
       session.sendMessage(TextMessage(objectMapper.writeValueAsBytes(MessageRes.Board(board))))
+    }
+  }
+
+  private fun forgetSession(session: WebSocketSession) {
+    synchronized(lock) {
+      connections.forEach { e ->
+        val removed = e.value.removeIf { s ->
+          s.id == session.id
+        }
+        if (removed) {
+          LOGGER.debug("user disconnected from board ${e.key}")
+        }
+      }
     }
   }
 }

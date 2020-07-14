@@ -60,5 +60,5 @@ logging:
   level:
     org.hibernate.SQL: DEBUG
     # org.hibernate.type: TRACE
-    org.jooq: DEBUG
+    org.jooq: INFO
     com.sourceclear.agile: TRACE
