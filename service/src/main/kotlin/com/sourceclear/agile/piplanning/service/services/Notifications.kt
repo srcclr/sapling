@@ -36,37 +36,40 @@ class NotificationsImpl : Notifications {
       }
       NotificationO.StoryRequestAccepted::class.simpleName -> {
         create.select(
-                STORY_REQUESTS.storyRequestsToBoardIdFkey().NAME,
+            STORY_REQUESTS.ID,
+            STORY_REQUESTS.storyRequestsToBoardIdFkey().NAME,
                 STORY_REQUESTS.TO_TICKET_DESCRIPTION,
                 STORY_REQUESTS.NOTES)
             .from(STORY_REQUESTS)
             .where(STORY_REQUESTS.ID.eq(n.storyRequestId))
-            .fetchOne { (sender, desc, notes) ->
-              NotificationO.StoryRequestAccepted(id = n.id, sender = sender,
+            .fetchOne { (id, sender, desc, notes) ->
+              NotificationO.StoryRequestAccepted(id = n.id, storyRequestId = id, sender = sender,
                   description = desc, notes = notes)
             }
       }
       NotificationO.StoryRequestRejected::class.simpleName -> {
         create.select(
-                STORY_REQUESTS.storyRequestsToBoardIdFkey().NAME,
+            STORY_REQUESTS.ID,
+            STORY_REQUESTS.storyRequestsToBoardIdFkey().NAME,
                 STORY_REQUESTS.TO_TICKET_DESCRIPTION,
                 STORY_REQUESTS.NOTES)
             .from(STORY_REQUESTS)
             .where(STORY_REQUESTS.ID.eq(n.storyRequestId))
-            .fetchOne { (sender, desc, notes) ->
-              NotificationO.StoryRequestRejected(id = n.id, sender = sender,
+            .fetchOne { (id, sender, desc, notes) ->
+              NotificationO.StoryRequestRejected(id = n.id, storyRequestId = id, sender = sender,
                   description = desc, notes = notes)
             }
       }
       NotificationO.StoryRequestWithdrawn::class.simpleName -> {
         create.select(
-                STORY_REQUESTS.storyRequestsFromBoardIdFkey().NAME,
+            STORY_REQUESTS.ID,
+            STORY_REQUESTS.storyRequestsFromBoardIdFkey().NAME,
                 STORY_REQUESTS.TO_TICKET_DESCRIPTION,
                 STORY_REQUESTS.NOTES)
             .from(STORY_REQUESTS)
             .where(STORY_REQUESTS.ID.eq(n.storyRequestId))
-            .fetchOne { (sender, desc, notes) ->
-              NotificationO.StoryRequestWithdrawn(id = n.id, sender = sender,
+            .fetchOne { (id, sender, desc, notes) ->
+              NotificationO.StoryRequestWithdrawn(id = n.id, storyRequestId = id, sender = sender,
                   description = desc, notes = notes)
             }
       }

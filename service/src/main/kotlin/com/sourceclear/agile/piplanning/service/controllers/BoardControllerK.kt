@@ -403,6 +403,13 @@ open class BoardControllerK @Autowired constructor(
         .where(TICKETS.ID.eq(ticket))
         .execute();
 
+    create.update((NOTIFICATIONS))
+        .set(NOTIFICATIONS.ACKNOWLEDGED, true)
+        .where(NOTIFICATIONS.STORY_REQUEST_ID.eq(s.id))
+        .and(NOTIFICATIONS.TYPE.eq(NotificationO.IncomingStoryRequest::class.simpleName)
+            .or(NOTIFICATIONS.TYPE.eq(NotificationO.StoryRequestResubmitted::class.simpleName)))
+        .execute();
+
     create.newRecord(NOTIFICATIONS).let {
       it.type = NotificationO.StoryRequestWithdrawn::class.simpleName
       it.storyRequestId = s.id
