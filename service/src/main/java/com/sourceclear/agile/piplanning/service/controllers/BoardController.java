@@ -19,6 +19,7 @@ import com.sourceclear.agile.piplanning.objects.TicketO;
 import com.sourceclear.agile.piplanning.service.components.SolverProperties;
 import com.sourceclear.agile.piplanning.service.entities.BaseEntity;
 import com.sourceclear.agile.piplanning.service.entities.Board;
+import com.sourceclear.agile.piplanning.service.entities.Dependency;
 import com.sourceclear.agile.piplanning.service.entities.Epic;
 import com.sourceclear.agile.piplanning.service.entities.Solution;
 import com.sourceclear.agile.piplanning.service.entities.Sprint;
@@ -112,6 +113,7 @@ public class BoardController {
   private final SolverProperties solverProperties;
   private final DefaultDSLContext create;
   private final Boards boards;
+  private final WebSockets webSockets;
 
   /////////////////////////////// Constructors \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 
@@ -125,7 +127,8 @@ public class BoardController {
                          ClingoService clingoServiceNew,
                          SolverProperties solverProperties,
                          DefaultDSLContext create,
-                         Boards boards) {
+                         Boards boards,
+                         WebSockets webSockets) {
     this.boardRepository = boardRepository;
     this.epicRepository = epicRepository;
     this.solutionRepository = solutionRepository;
@@ -136,6 +139,7 @@ public class BoardController {
     this.solverProperties = solverProperties;
     this.create = create;
     this.boards = boards;
+    this.webSockets = webSockets;
   }
 
   ////////////////////////////////// Methods \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -156,6 +160,8 @@ public class BoardController {
     }
 
     // TODO fix ordinal?
+
+    webSockets.broadcastBoardUpdate(sprint1.getBoard().getId());
   }
 
   @PostMapping("/board/{boardId}/sprints")
@@ -178,6 +184,9 @@ public class BoardController {
 
     s = sprintRepository.save(s);
     board.getSprints().add(s);
+
+    webSockets.broadcastBoardUpdate(board.getId());
+
     return ResponseEntity.ok(new SprintO(s.getId(), s.getName(), s.getGoal(), s.getCapacity(), new ArrayList<>()));
   }
 
@@ -185,10 +194,12 @@ public class BoardController {
   @Transactional
   public void deleteSprint(@PathVariable long sprintId) {
     // Why does deletion return 500...?
-    sprintRepository.findById(sprintId)
+    Sprint sprint = sprintRepository.findById(sprintId)
         .orElseThrow(notFound);
 
     sprintRepository.deleteById(sprintId);
+
+    webSockets.broadcastBoardUpdate(sprint.getBoard().getId());
   }
 
   @PutMapping("/ticket/{ticketId}")
@@ -212,6 +223,8 @@ public class BoardController {
     if (ticket1.getWeight() != ticket.getWeight()) {
       ticket1.setWeight(ticket.getWeight());
     }
+
+    webSockets.broadcastBoardUpdate(ticket1.getBoard().getId());
   }
 
   @PostMapping("/board/{boardId}/epic/{epicId}/tickets")
@@ -225,6 +238,8 @@ public class BoardController {
         .orElseThrow(notFound);
     Ticket t = new Ticket(board, epic, ticket);
     t = ticketRepository.save(t);
+
+    webSockets.broadcastBoardUpdate(board.getId());
 
     return ResponseEntity.ok(new TicketO(t.getId(), t.getDescription(), t.getWeight(), epic.getId(),
         null, new HashSet<>(), new HashSet<>(), false));
@@ -244,10 +259,12 @@ public class BoardController {
     }
 
     // Why does deletion return 500...?
-    ticketRepository.findById(ticketId)
+    Ticket ticket = ticketRepository.findById(ticketId)
         .orElseThrow(notFound);
 
     ticketRepository.deleteById(ticketId);
+
+    webSockets.broadcastBoardUpdate(ticket.getBoard().getId());
   }
 
   private static final String INPUT_ISSUE_KEY = "Issue key";
@@ -376,7 +393,7 @@ public class BoardController {
   @PostMapping("/board/{boardId}")
   @Transactional
   public ResponseEntity<BoardO> compute(@PathVariable long boardId) {
-    return computeNewSolution(boardId);
+    return ResponseEntity.ok(computeNewSolution(boardId));
   }
 
   @GetMapping("/board/{boardId}/preview")
@@ -480,10 +497,12 @@ public class BoardController {
   /**
    * Validates the id, then computes, saves, and returns a new solution for the given board.
    */
-  private ResponseEntity<BoardO> computeNewSolution(long boardId) {
-    return ResponseEntity.ok(computeNewSolution(
+  private BoardO computeNewSolution(long boardId) {
+    BoardO board = computeNewSolution(
         boardRepository.findToSolve(boardId)
-            .orElseThrow(notFound)));
+            .orElseThrow(notFound));
+    webSockets.broadcastBoardUpdate(board);
+    return board;
   }
 
   private void computePreviewSolutions(Board board, Function<BoardO, Boolean> answers) {
@@ -633,6 +652,8 @@ public class BoardController {
 
       LOGGER.debug("added {} epics, {} sprints, {} tickets; {} failed to parse",
           epics.size(), sprints.size(), tickets.size(), errors[0]);
+
+      webSockets.broadcastBoardUpdate(board.getId());
 
       return Map.of("epics", epics.size(), "sprints", sprints.size(), "tickets", tickets.size(), "errors", errors[0]);
     } catch (IllegalArgumentException e) {

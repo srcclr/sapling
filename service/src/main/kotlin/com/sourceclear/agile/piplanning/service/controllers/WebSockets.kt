@@ -40,12 +40,16 @@ class WebSockets @Autowired constructor(
           connections.getOrPut(msg.board) { mutableListOf() }.add(session)
           LOGGER.debug("user connected to board {}", msg.board)
         }
-        broadcastBoardUpdate(boards.useCurrentSolution(msg.board))
+        broadcastBoardUpdate(msg.board)
       }
       is MessageReq.EditingSprint -> TODO()
       is MessageReq.EditingStory -> TODO()
       is MessageReq.EditingEpic -> TODO()
     }
+  }
+
+  fun broadcastBoardUpdate(board: Long) {
+    broadcastBoardUpdate(boards.useCurrentSolution(board))
   }
 
   fun broadcastBoardUpdate(board: BoardO) {

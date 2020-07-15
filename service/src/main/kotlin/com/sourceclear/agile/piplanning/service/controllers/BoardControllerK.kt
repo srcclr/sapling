@@ -56,7 +56,7 @@ open class BoardControllerK @Autowired constructor(
     private val sprintRepository: SprintRepository,
     private val ticketRepository: TicketRepository,
     private val boardRepository: BoardRepository,
-
+    private val webSockets: WebSockets,
     private val create: DefaultDSLContext
 ) {
 
@@ -88,6 +88,7 @@ open class BoardControllerK @Autowired constructor(
   open fun createEpic(@PathVariable boardId: Long, @Valid @RequestBody epic: EpicI): EpicO {
     val b = boardRepository.findById(boardId).orElseThrow(notFound)!!
     val e = epicRepository.save(Epic(epic.name, epic.priority, b))
+    webSockets.broadcastBoardUpdate(boardId)
     return EpicO(e.id, e.name, e.priority)
   }
 
@@ -97,6 +98,7 @@ open class BoardControllerK @Autowired constructor(
     val e = epicRepository.findById(epicId).orElseThrow(notFound)!!
     e.name = epic.name
     e.priority = epic.priority
+    webSockets.broadcastBoardUpdate(e.board.id)
   }
 
   @DeleteMapping("/epic/{epicId}")
@@ -116,7 +118,9 @@ open class BoardControllerK @Autowired constructor(
       throw badRequest
     }
 
+    val (board) = create.select(EPICS.BOARD_ID).from(EPICS).where(EPICS.ID.eq(epicId)).fetchOne()
     epicRepository.deleteById(epicId)
+    webSockets.broadcastBoardUpdate(board)
   }
 
   /**
@@ -128,6 +132,7 @@ open class BoardControllerK @Autowired constructor(
     val e = epicRepository.findById(epicId).orElseThrow(notFound)!!
     val t = ticketRepository.findById(ticketId).orElseThrow(notFound)!!
     t.epic = e
+    webSockets.broadcastBoardUpdate(t.board.id)
   }
 
   //
@@ -142,6 +147,7 @@ open class BoardControllerK @Autowired constructor(
     val t = ticketRepository.findById(pin.ticketId).orElseThrow(notFound)!!
     b.pins.removeIf { it.ticketId == pin.ticketId }
     b.pins.add(Pin(s.id, t.id))
+    webSockets.broadcastBoardUpdate(boardId)
   }
 
   @PostMapping("/board/{boardId}/pins/all")
@@ -155,6 +161,7 @@ open class BoardControllerK @Autowired constructor(
                 .from(SOLUTIONS)
                 .where(SOLUTIONS.BOARD_ID.eq(boardId)))
         .execute()
+    webSockets.broadcastBoardUpdate(boardId)
   }
 
   @DeleteMapping("/board/{boardId}/pins/all")
@@ -165,6 +172,7 @@ open class BoardControllerK @Autowired constructor(
     create.delete(TICKET_PINS)
         .where(TICKET_PINS.BOARD_ID.eq(boardId))
         .execute()
+    webSockets.broadcastBoardUpdate(boardId)
   }
 
   @DeleteMapping("/board/{boardId}/pins")
@@ -172,6 +180,7 @@ open class BoardControllerK @Autowired constructor(
   open fun deletePin(@PathVariable boardId: Long, @Valid @RequestBody pin: PinI) {
     val b = boardRepository.findWithPins(boardId).orElseThrow(notFound)!!
     b.pins = b.pins.filterNotTo(HashSet()) { it.ticketId == pin.ticketId }
+    webSockets.broadcastBoardUpdate(boardId)
   }
 
   //
@@ -188,6 +197,7 @@ open class BoardControllerK @Autowired constructor(
     if (b.deps.none { it.fromTicketId == dep.fromTicketId && it.toTicketId == dep.toTicketId }) {
       b.deps.add(Dependency(dep.fromTicketId, dep.toTicketId))
     }
+    webSockets.broadcastBoardUpdate(boardId)
   }
 
   @DeleteMapping("/board/{boardId}/dependencies")
@@ -195,6 +205,7 @@ open class BoardControllerK @Autowired constructor(
   open fun deleteDep(@PathVariable boardId: Long, @Valid @RequestBody dep: DepI) {
     val b = boardRepository.findWithDeps(boardId).orElseThrow(notFound)!!
     b.deps.remove(Dependency(dep.fromTicketId, dep.toTicketId))
+    webSockets.broadcastBoardUpdate(boardId)
   }
 
   //
@@ -221,6 +232,8 @@ open class BoardControllerK @Autowired constructor(
       it.recipientId = s.toBoardId
       it.store()
     }
+
+    webSockets.broadcastBoardUpdate(boardId)
   }
 
   @PutMapping("/board/{boardId}/request/{requestId}")
@@ -237,6 +250,8 @@ open class BoardControllerK @Autowired constructor(
     // similar to create, except only the fields below can be edited
     fromStoryRequest(s, storyRequest, b.name)
     s.store()
+
+    webSockets.broadcastBoardUpdate(boardId)
   }
 
   private fun fromStoryRequest(s: StoryRequestsRecord, storyRequest: StoryRequestI, boardName: String) {
@@ -314,6 +329,8 @@ open class BoardControllerK @Autowired constructor(
         .set(NOTIFICATIONS.ACKNOWLEDGED, true)
         .where(NOTIFICATIONS.STORY_REQUEST_ID.eq(requestId).and(NOTIFICATIONS.TYPE.eq(NotificationO.IncomingStoryRequest::class.simpleName)))
         .execute();
+
+    webSockets.broadcastBoardUpdate(boardId)
   }
 
   @PostMapping("/board/{boardId}/request/{requestId}/reject")
@@ -362,6 +379,8 @@ open class BoardControllerK @Autowired constructor(
         .set(NOTIFICATIONS.ACKNOWLEDGED, true)
         .where(NOTIFICATIONS.STORY_REQUEST_ID.eq(requestId).and(NOTIFICATIONS.TYPE.eq(NotificationO.IncomingStoryRequest::class.simpleName)))
         .execute();
+
+    webSockets.broadcastBoardUpdate(boardId)
   }
 
   @PostMapping("/board/{boardId}/request/{requestId}/withdraw")
@@ -403,6 +422,8 @@ open class BoardControllerK @Autowired constructor(
       it.recipientId = s.toBoardId
       it.store()
     }
+
+    webSockets.broadcastBoardUpdate(boardId)
   }
 
   @PostMapping("/board/{boardId}/request/{requestId}/resubmit")
@@ -435,6 +456,8 @@ open class BoardControllerK @Autowired constructor(
       it.recipientId = s.toBoardId
       it.store()
     }
+
+    webSockets.broadcastBoardUpdate(boardId)
   }
 
   @GetMapping("/boards/dependencies")
@@ -490,6 +513,8 @@ open class BoardControllerK @Autowired constructor(
 
     n.acknowledged = true
     n.store()
+
+    webSockets.broadcastBoardUpdate(boardId)
   }
 
   private fun validateBoard(user: User, boardId: Long): BoardsRecord {
