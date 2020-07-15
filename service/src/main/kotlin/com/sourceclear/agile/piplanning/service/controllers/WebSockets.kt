@@ -53,7 +53,7 @@ class WebSockets @Autowired constructor(
   }
 
   fun broadcastBoardUpdate(board: BoardO) {
-    connections.get(board.id)!!.forEach { session ->
+    connections.getOrDefault(board.id, mutableListOf()).forEach { session ->
       session.sendMessage(TextMessage(objectMapper.writeValueAsBytes(MessageRes.Board(board))))
     }
   }
