@@ -19,7 +19,6 @@ import com.sourceclear.agile.piplanning.objects.TicketO;
 import com.sourceclear.agile.piplanning.service.components.SolverProperties;
 import com.sourceclear.agile.piplanning.service.entities.BaseEntity;
 import com.sourceclear.agile.piplanning.service.entities.Board;
-import com.sourceclear.agile.piplanning.service.entities.Dependency;
 import com.sourceclear.agile.piplanning.service.entities.Epic;
 import com.sourceclear.agile.piplanning.service.entities.Solution;
 import com.sourceclear.agile.piplanning.service.entities.Sprint;
@@ -438,6 +437,7 @@ public class BoardController {
         .orElseThrow(notFound);
     solutionRepository.deleteRealSolution(board);
     solutionRepository.acceptPreviewSolution(board);
+    webSockets.broadcastBoardUpdate(boardId);
   }
 
   @DeleteMapping(value = "/board/{boardId}/preview")
@@ -447,16 +447,13 @@ public class BoardController {
     Board board = boardRepository.findById(boardId)
         .orElseThrow(notFound);
     solutionRepository.deletePreviewSolution(board);
+    // TODO might need to broadcast preview updates
   }
 
   @GetMapping("/boards")
   @Transactional(readOnly = true)
   public ResponseEntity<List<BoardL>> listBoards() {
-    var all = boardRepository.findAllWithOwner().stream()
-        .map(b -> new BoardL(b.getId(), b.getName(), b.getOwner().getUsername()))
-        .sorted(Comparator.comparingLong(BoardL::getId))
-        .collect(Collectors.toList());
-    return ResponseEntity.ok(all);
+    return ResponseEntity.ok(boards.getBoardList());
   }
 
   @PostMapping("/boards")
@@ -468,6 +465,7 @@ public class BoardController {
     b.setName(board.getName());
     b.setOwner(user);
     boardRepository.save(b);
+    webSockets.broadcastBoardListUpdate();
   }
 
   @PutMapping("/board/{boardId}")
@@ -478,12 +476,14 @@ public class BoardController {
         .orElseThrow(notFound);
     // Only metadata can be updated here
     b.setName(board.getName());
+    webSockets.broadcastBoardListUpdate();
   }
 
   @DeleteMapping("/board/{boardId}")
   @Transactional
   public void deleteBoard(@PathVariable long boardId) {
     boardRepository.deleteById(boardId);
+    webSockets.broadcastBoardListUpdate();
   }
 
   //------------------------ Implements:
@@ -547,6 +547,8 @@ public class BoardController {
 
       solutionRepository.deletePreviewSolution(board);
       solutionRepository.saveAll(solution);
+
+      // TODO might need to broadcast preview updates
 
       return answers.apply(boards.reconstruct(solution, board.getId()));
     };

@@ -96,6 +96,10 @@ public class JwtTokenProvider {
     return true;
   }
 
+  public String getEmail(String token) {
+    return parseClaims(token).getBody().getSubject();
+  }
+
   //------------------------ Implements:
 
   //------------------------ Overrides:
@@ -112,10 +116,6 @@ public class JwtTokenProvider {
     } catch (JwtException | IllegalArgumentException e) {
       throw new JwtAuthenticationException("Expired/invalid JWT token");
     }
-  }
-
-  private String getEmail(String token) {
-    return parseClaims(token).getBody().getSubject();
   }
 
   private static PrivateKey getPrivate(String value) throws Exception {

@@ -1,5 +1,6 @@
 package com.sourceclear.agile.piplanning.service.services
 
+import com.sourceclear.agile.piplanning.objects.BoardL
 import com.sourceclear.agile.piplanning.objects.BoardO
 import com.sourceclear.agile.piplanning.objects.EpicO
 import com.sourceclear.agile.piplanning.objects.NotificationO
@@ -29,6 +30,7 @@ interface Boards {
   fun reconstruct(rawAssignments: Set<Solution>, boardId: Long): BoardO
   fun useCurrentSolution(boardId: Long): BoardO
   fun useCurrentPreview(boardId: Long): BoardO
+  fun getBoardList(): List<BoardL>
 }
 
 @Service
@@ -37,6 +39,15 @@ open class BoardsImpl @Autowired constructor(
     private val solutionRepository: SolutionRepository,
     private val notifications: Notifications) : Boards {
 
+  @Transactional
+  override fun getBoardList(): List<BoardL> {
+    return create.select(BOARDS.ID, BOARDS.NAME, BOARDS.users().EMAIL)
+        .from(BOARDS)
+        .orderBy(BOARDS.ID)
+        .fetch { (id, name, email) ->
+          BoardL(id, name, email)
+        }
+  }
 
   @Transactional
   override fun useCurrentSolution(boardId: Long): BoardO {

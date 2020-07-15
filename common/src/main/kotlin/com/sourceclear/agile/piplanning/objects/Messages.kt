@@ -8,30 +8,47 @@ import com.fasterxml.jackson.annotation.JsonTypeName
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME)
 @JsonSubTypes(
     JsonSubTypes.Type(value = MessageReq.OpenedBoard::class, name = "OpenedBoard"),
+    JsonSubTypes.Type(value = MessageReq.OpenedBoardList::class, name = "OpenedBoardList"),
     JsonSubTypes.Type(value = MessageReq.EditingSprint::class, name = "EditingSprint"),
     JsonSubTypes.Type(value = MessageReq.EditingEpic::class, name = "EditingEpic"),
     JsonSubTypes.Type(value = MessageReq.EditingStory::class, name = "EditingStory"))
-sealed class MessageReq {
+sealed class MessageReq(open val token: String) {
 
   data class OpenedBoard(
-      val board: Long) : MessageReq()
+      override val token: String,
+      val board: Long) : MessageReq(token)
+
+  data class OpenedBoardList(
+      override val token: String) : MessageReq(token)
 
   data class EditingSprint(
-      val sprint: Long) : MessageReq()
+      override val token: String,
+      val board: Long,
+      val sprint: Long) : MessageReq(token)
 
   data class EditingStory(
-      val story: Long) : MessageReq()
+      override val token: String,
+      val board: Long,
+      val story: Long) : MessageReq(token)
 
   data class EditingEpic(
-      val epic: Long) : MessageReq()
+      override val token: String,
+      val board: Long,
+      val epic: Long) : MessageReq(token)
 }
 
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME)
 @JsonSubTypes(
+    JsonSubTypes.Type(value = MessageRes.BoardList::class, name = "BoardList"),
     JsonSubTypes.Type(value = MessageRes.Board::class, name = "Board"))
 sealed class MessageRes {
 
   @JsonTypeName("Board")
   data class Board(
-      val board: BoardO) : MessageRes()
+      val board: BoardO,
+      val clients: List<String>) : MessageRes()
+
+  @JsonTypeName("BoardList")
+  data class BoardList(
+      val boards: List<BoardL>) : MessageRes()
 }

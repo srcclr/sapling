@@ -15,7 +15,7 @@ class MessagesTest {
   @Test
   fun messages() {
     val mapper = ObjectMapper().registerModule(KotlinModule())
-    val a = MessageReq.OpenedBoard(1L)
+    val a = MessageReq.OpenedBoard("token", 1L)
     val s = mapper.writeValueAsString(a)
     val b = mapper.readValue<MessageReq>(s) // polymorphic
     assertEquals(a, b)
