@@ -272,54 +272,48 @@ open class BoardControllerK @Autowired constructor(
 
     val s = create.fetchOne(STORY_REQUESTS, STORY_REQUESTS.ID.eq(requestId))
         ?: throw notFound
-
-    if (s.state != Pending.name) {
-      // for acknowledgements
-      create.update(NOTIFICATIONS)
-          .set(NOTIFICATIONS.ACKNOWLEDGED, true)
-          .where(NOTIFICATIONS.STORY_REQUEST_ID.eq(requestId).and(NOTIFICATIONS.TYPE.notEqual(NotificationO.IncomingStoryRequest::class.simpleName)))
-          .execute()
-    } else {
-      // for accepting an incoming request
-      if (boardId != s.toBoardId) { // has to be sent from the receiving board
-        throw unauthorized
-      }
-      s.state = Accepted.name
-
-
-      val t = create.newRecord(TICKETS)
-      t.boardId = s.toBoardId
-      t.description = s.toTicketDescription
-      t.weight = s.toTicketWeight
-      t.epicId = s.toTicketEpicId
-      t.store()
-
-      s.notes = addToNote(s.notes, b.name, input.notes)
-
-      // Get the ticket id that was just filled in
-      s.toTicketId = t.id
-      s.store()
-
-      create.newRecord(SOLUTIONS).let {
-        it.boardId = s.toBoardId
-        it.ticketId = t.id
-        it.sprintId = s.toTicketSprintId
-        it.preview = false
-        it.store()
-      }
-
-      create.newRecord(NOTIFICATIONS).let {
-        it.type = NotificationO.StoryRequestAccepted::class.simpleName
-        it.storyRequestId = s.id
-        it.recipientId = s.fromBoardId
-        it.store()
-      }
-
-      create.update(NOTIFICATIONS)
-          .set(NOTIFICATIONS.ACKNOWLEDGED, true)
-          .where(NOTIFICATIONS.STORY_REQUEST_ID.eq(requestId).and(NOTIFICATIONS.TYPE.eq(NotificationO.IncomingStoryRequest::class.simpleName)))
-          .execute();
+    if (boardId != s.toBoardId) { // has to be sent from the receiving board
+      throw unauthorized
     }
+
+    if (valueOf(s.state) == Pending) {
+      s.state = Accepted.name
+    } else {
+      throw badRequest
+    }
+
+    val t = create.newRecord(TICKETS)
+    t.boardId = s.toBoardId
+    t.description = s.toTicketDescription
+    t.weight = s.toTicketWeight
+    t.epicId = s.toTicketEpicId
+    t.store()
+
+    s.notes = addToNote(s.notes, b.name, input.notes)
+
+    // Get the ticket id that was just filled in
+    s.toTicketId = t.id
+    s.store()
+
+    create.newRecord(SOLUTIONS).let {
+      it.boardId = s.toBoardId
+      it.ticketId = t.id
+      it.sprintId = s.toTicketSprintId
+      it.preview = false
+      it.store()
+    }
+
+    create.newRecord(NOTIFICATIONS).let {
+      it.type = NotificationO.StoryRequestAccepted::class.simpleName
+      it.storyRequestId = s.id
+      it.recipientId = s.fromBoardId
+      it.store()
+    }
+
+    create.update(NOTIFICATIONS)
+        .set(NOTIFICATIONS.ACKNOWLEDGED, true)
+        .where(NOTIFICATIONS.STORY_REQUEST_ID.eq(requestId).and(NOTIFICATIONS.TYPE.eq(NotificationO.IncomingStoryRequest::class.simpleName)))
+        .execute();
   }
 
   @PostMapping("/board/{boardId}/request/{requestId}/reject")
