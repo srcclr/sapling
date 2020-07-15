@@ -23,6 +23,7 @@ import com.sourceclear.agile.piplanning.service.repositories.SolutionRepository
 import org.jooq.impl.DefaultDSLContext
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Service
+import org.springframework.transaction.annotation.Transactional
 
 interface Boards {
   fun reconstruct(rawAssignments: Set<Solution>, boardId: Long): BoardO
@@ -37,10 +38,12 @@ open class BoardsImpl @Autowired constructor(
     private val notifications: Notifications) : Boards {
 
 
+  @Transactional
   override fun useCurrentSolution(boardId: Long): BoardO {
     return useCurrentBoard(boardId, solutionRepository.findCurrentSolution(boardId))
   }
 
+  @Transactional
   override fun useCurrentPreview(boardId: Long): BoardO {
     return useCurrentBoard(boardId, solutionRepository.findCurrentPreview(boardId))
   }
