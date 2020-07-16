@@ -49,7 +49,7 @@ sealed class MessageRes {
   @JsonTypeName("Board")
   data class Board(
       val board: BoardO,
-      val clients: List<String>,
+      val clients: List<ConnectedUser>,
       val locked: List<Interaction>) : MessageRes()
 
   @JsonTypeName("BoardList")
@@ -78,7 +78,9 @@ sealed class Element {
       val epic: Long) : Element()
 }
 
+data class ConnectedUser(val email: String, val uuid: String)
+
 // The uuid is the session id. Probably not a great idea to expose it, but it allows the FE
 // to distinguish different instances of a single user's browser. Might be replaced by some
 // kind of proxy value in future.
-data class Interaction(val email: String, val uuid: String, val element: Element)
+data class Interaction(val user: ConnectedUser, val element: Element)

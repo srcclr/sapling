@@ -8,6 +8,7 @@ import com.sourceclear.agile.piplanning.objects.Element
 import com.sourceclear.agile.piplanning.objects.Interaction
 import com.sourceclear.agile.piplanning.objects.MessageReq
 import com.sourceclear.agile.piplanning.objects.MessageRes
+import com.sourceclear.agile.piplanning.objects.ConnectedUser
 import com.sourceclear.agile.piplanning.service.components.JwtTokenProvider
 import com.sourceclear.agile.piplanning.service.exceptions.JwtAuthenticationException
 import com.sourceclear.agile.piplanning.service.services.Boards
@@ -55,7 +56,8 @@ class WebSockets @Autowired constructor(
       is MessageReq.OpenedBoard -> {
         synchronized(lock) {
           forgetSession(session)
-          connectionsByBoard.getOrPut(msg.board) { mutableListOf() }.add(ConnectedClient(session, email))
+          connectionsByBoard.getOrPut(msg.board) { mutableListOf() }.add(
+              ConnectedClient(session = session, email = email))
           LOGGER.debug("user connected to board {}", msg.board)
           broadcastBoardUpdate(msg.board)
         }
@@ -63,7 +65,7 @@ class WebSockets @Autowired constructor(
       is MessageReq.OpenedBoardList -> {
         synchronized(lock) {
           forgetSession(session)
-          boardListConnections.add(ConnectedClient(session, email))
+          boardListConnections.add(ConnectedClient(session = session, email = email))
           session.sendMessage(TextMessage(objectMapper.writeValueAsBytes(MessageRes.BoardList(boards.getBoardList()))))
         }
       }
@@ -72,10 +74,12 @@ class WebSockets @Autowired constructor(
           val interactions = locked.getOrDefault(msg.board, mutableListOf())
           if (msg.done) {
             interactions.removeIf {
-              it.uuid == session.id && it.element.let { e -> e is Element.Sprint && e.sprint == msg.sprint }
+              it.user.uuid == session.id && it.element.let { e -> e is Element.Sprint && e.sprint == msg.sprint }
             }
           } else {
-            interactions.add(Interaction(email, session.id, Element.Sprint(msg.board, msg.sprint)))
+            interactions.add(Interaction(
+                ConnectedUser(email = email, uuid = session.id),
+                Element.Sprint(board = msg.board, sprint = msg.sprint)))
           }
         }
       }
@@ -84,10 +88,12 @@ class WebSockets @Autowired constructor(
           val interactions = locked.getOrDefault(msg.board, mutableListOf())
           if (msg.done) {
             interactions.removeIf {
-              it.uuid == session.id && it.element.let { e -> e is Element.Story && e.story == msg.story }
+              it.user.uuid == session.id && it.element.let { e -> e is Element.Story && e.story == msg.story }
             }
           } else {
-            interactions.add(Interaction(email, session.id, Element.Story(msg.board, msg.story)))
+            interactions.add(Interaction(
+                ConnectedUser(email = email, uuid = session.id),
+                Element.Story(board = msg.board, story = msg.story)))
           }
         }
       }
@@ -96,10 +102,12 @@ class WebSockets @Autowired constructor(
           val interactions = locked.getOrDefault(msg.board, mutableListOf())
           if (msg.done) {
             interactions.removeIf {
-              it.uuid == session.id && it.element.let { e -> e is Element.Epic && e.epic == msg.epic }
+              it.user.uuid == session.id && it.element.let { e -> e is Element.Epic && e.epic == msg.epic }
             }
           } else {
-            interactions.add(Interaction(email, session.id, Element.Epic(msg.board, msg.epic)))
+            interactions.add(Interaction(
+                ConnectedUser(email = email, uuid = session.id),
+                Element.Epic(board = msg.board, epic = msg.epic)))
           }
         }
       }
@@ -116,8 +124,8 @@ class WebSockets @Autowired constructor(
       clients.forEach { client ->
         client.session.sendMessage(TextMessage(objectMapper.writeValueAsBytes(
             MessageRes.Board(board,
-                clients.map { it.email },
-                locked.getOrDefault(board.id, mutableListOf()).filter { it.uuid != client.session.id }))))
+                clients.map { ConnectedUser(email = it.email, uuid = it.session.id) },
+                locked.getOrDefault(board.id, mutableListOf()).filter { it.user.uuid != client.session.id }))))
       }
     }
   }
@@ -145,8 +153,8 @@ class WebSockets @Autowired constructor(
         client.session.id == session.id
       }
       locked.forEach { e ->
-        e.value.removeIf { client ->
-          client.uuid == session.id
+        e.value.removeIf { i ->
+          i.user.uuid == session.id
         }
       }
     }
