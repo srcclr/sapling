@@ -54,7 +54,7 @@ data class TicketO(
     val crossBoardDependents: Boolean
 )
 
-@JsonTypeInfo(use = JsonTypeInfo.Id.NAME)
+@JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type")
 sealed class NotificationO(open val id: Long) {
 
   @JsonTypeName("IncomingStoryRequest")
