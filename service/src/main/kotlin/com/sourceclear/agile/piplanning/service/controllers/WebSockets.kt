@@ -117,7 +117,7 @@ class WebSockets @Autowired constructor(
         client.session.sendMessage(TextMessage(objectMapper.writeValueAsBytes(
             MessageRes.Board(board,
                 clients.map { it.email },
-                locked.getOrDefault(board.id, mutableListOf())))))
+                locked.getOrDefault(board.id, mutableListOf()).filter { it.uuid != client.session.id }))))
       }
     }
   }

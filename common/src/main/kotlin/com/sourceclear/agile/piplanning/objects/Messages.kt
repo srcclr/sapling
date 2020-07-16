@@ -78,4 +78,7 @@ sealed class Element {
       val epic: Long) : Element()
 }
 
+// The uuid is the session id. Probably not a great idea to expose it, but it allows the FE
+// to distinguish different instances of a single user's browser. Might be replaced by some
+// kind of proxy value in future.
 data class Interaction(val email: String, val uuid: String, val element: Element)
