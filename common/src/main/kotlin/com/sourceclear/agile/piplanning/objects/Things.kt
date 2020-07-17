@@ -54,7 +54,7 @@ data class TicketO(
     val crossBoardDependents: Boolean
 )
 
-@JsonTypeInfo(use = JsonTypeInfo.Id.NAME)
+@JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type")
 sealed class NotificationO(open val id: Long) {
 
   @JsonTypeName("IncomingStoryRequest")
@@ -121,7 +121,7 @@ data class StoryRequestI(
     val storyPoints: Int,
     val storyEpicId: Long,
     val storySprintId: Long,
-    val notes: String
+    val notes: String = ""
 )
 
 enum class SRState {

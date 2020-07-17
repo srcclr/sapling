@@ -19,7 +19,7 @@ class NotificationsTest {
     val value = NotificationO.IncomingStoryRequest(1L, 2L, "sender", "sprint", "epic", "descripton", 1, "notes")
     val s = notifications.mapper.writeValueAsString(value)
     val value1 = notifications.mapper.readValue<NotificationO.IncomingStoryRequest>(s)
-    assertTrue(s.contains("\"@type\":\"" + NotificationO.IncomingStoryRequest::class.simpleName + "\""))
+    assertTrue(s.contains("\"type\":\"" + NotificationO.IncomingStoryRequest::class.simpleName + "\""))
     assertEquals(value, value1)
   }
 }
