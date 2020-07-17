@@ -5,7 +5,7 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo
 import com.fasterxml.jackson.annotation.JsonTypeName
 
 // WebSocket messages sent from the front end
-@JsonTypeInfo(use = JsonTypeInfo.Id.NAME)
+@JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type")
 @JsonSubTypes(
     JsonSubTypes.Type(value = MessageReq.OpenedBoard::class, name = "OpenedBoard"),
     JsonSubTypes.Type(value = MessageReq.OpenedBoardList::class, name = "OpenedBoardList"),
@@ -40,7 +40,7 @@ sealed class MessageReq(open val token: String) {
       val done: Boolean) : MessageReq(token)
 }
 
-@JsonTypeInfo(use = JsonTypeInfo.Id.NAME)
+@JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type")
 @JsonSubTypes(
     JsonSubTypes.Type(value = MessageRes.BoardList::class, name = "BoardList"),
     JsonSubTypes.Type(value = MessageRes.Board::class, name = "Board"))
@@ -58,7 +58,7 @@ sealed class MessageRes {
 }
 
 // Elements that can be edited
-@JsonTypeInfo(use = JsonTypeInfo.Id.NAME)
+@JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type")
 @JsonSubTypes(
     JsonSubTypes.Type(value = Element.Sprint::class, name = "Sprint"),
     JsonSubTypes.Type(value = Element.Story::class, name = "Story"),
