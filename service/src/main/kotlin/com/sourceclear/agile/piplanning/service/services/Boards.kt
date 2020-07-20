@@ -35,6 +35,7 @@ interface Boards {
   fun getBoardList(): List<BoardL>
   fun lock(board: Long)
   fun <T> update(board: Long, f: () -> T): T
+  fun <T> updateAll(vararg board: Long, f: () -> T): T
 }
 
 @Service
@@ -47,13 +48,27 @@ open class BoardsImpl @Autowired constructor(
 
   @Transactional
   override fun <T> update(board: Long, f: () -> T): T {
-    lock(board)
+    return updateAll(board, f = f)
+  }
+
+  @Transactional
+  override fun <T> updateAll(vararg board: Long, f: () -> T): T {
+
+    // Avoid deadlock
+    board.sort()
+
+    board.forEach {
+      lock(it)
+    }
+
     val r = f()
+    // If f fails, broadcast won't happen
 
     entityManager.flush()
 
-    // If f files, don't broadcast
-    webSockets.broadcastBoardUpdate(board)
+    board.forEach {
+      webSockets.broadcastBoardUpdate(it)
+    }
     return r
   }
 

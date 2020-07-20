@@ -228,7 +228,7 @@ open class BoardControllerK @Autowired constructor(
   open fun createStoryRequest(
       @AuthenticationPrincipal user: User,
       @PathVariable boardId: Long, @Valid @RequestBody storyRequest: StoryRequestI) {
-    boards.update(boardId) {
+    boards.updateAll(boardId, storyRequest.boardId) {
       val b = validateBoard(user, boardId)
 
       val s = create.newRecord(STORY_REQUESTS)
@@ -254,7 +254,8 @@ open class BoardControllerK @Autowired constructor(
       @PathVariable boardId: Long,
       @PathVariable requestId: Long,
       @Valid @RequestBody storyRequest: StoryRequestI) {
-    boards.update(boardId) {
+
+    boards.updateAll(boardId, storyRequest.boardId) {
       val b = validateBoard(user, boardId)
 
       val s = create.fetchOne(STORY_REQUESTS, STORY_REQUESTS.ID.eq(requestId))
@@ -295,15 +296,15 @@ open class BoardControllerK @Autowired constructor(
       @PathVariable requestId: Long,
       @Valid @RequestBody input: StateChangeInput) {
 
-    boards.update(boardId) {
-      val b = validateBoard(user, boardId)
+    val b = validateBoard(user, boardId)
 
-      val s = create.fetchOne(STORY_REQUESTS, STORY_REQUESTS.ID.eq(requestId))
-          ?: throw notFound
-      if (boardId != s.toBoardId) { // has to be sent from the receiving board
-        throw unauthorized
-      }
+    val s = create.fetchOne(STORY_REQUESTS, STORY_REQUESTS.ID.eq(requestId))
+        ?: throw notFound
+    if (boardId != s.toBoardId) { // has to be sent from the receiving board
+      throw unauthorized
+    }
 
+    boards.updateAll(s.toBoardId, s.fromBoardId) {
       if (valueOf(s.state) == Pending) {
         s.state = Accepted.name
       } else {
@@ -352,15 +353,16 @@ open class BoardControllerK @Autowired constructor(
       @PathVariable boardId: Long,
       @PathVariable requestId: Long,
       @Valid @RequestBody input: StateChangeInput) {
-    boards.update(boardId) {
-      val b = validateBoard(user, boardId)
 
-      val s = create.fetchOne(STORY_REQUESTS, STORY_REQUESTS.ID.eq(requestId))
-          ?: throw notFound
-      if (boardId != s.toBoardId) { // has to be sent from the receiving board
-        throw unauthorized
-      }
+    val b = validateBoard(user, boardId)
 
+    val s = create.fetchOne(STORY_REQUESTS, STORY_REQUESTS.ID.eq(requestId))
+        ?: throw notFound
+    if (boardId != s.toBoardId) { // has to be sent from the receiving board
+      throw unauthorized
+    }
+
+    boards.updateAll(s.toBoardId, s.fromBoardId) {
       if (valueOf(s.state) == Pending) {
         s.state = Rejected.name
       } else {
@@ -378,7 +380,7 @@ open class BoardControllerK @Autowired constructor(
         // If the ticket hasn't been created and the story was rejected outright
         create.delete(TICKETS)
             .where(TICKETS.ID.eq(ticket))
-            .execute();
+            .execute()
       }
 
       create.newRecord(NOTIFICATIONS).let {
@@ -391,7 +393,7 @@ open class BoardControllerK @Autowired constructor(
       create.update(NOTIFICATIONS)
           .set(NOTIFICATIONS.ACKNOWLEDGED, true)
           .where(NOTIFICATIONS.STORY_REQUEST_ID.eq(requestId).and(NOTIFICATIONS.TYPE.eq(NotificationO.IncomingStoryRequest::class.simpleName)))
-          .execute();
+          .execute()
 
     }
   }
@@ -403,15 +405,16 @@ open class BoardControllerK @Autowired constructor(
       @PathVariable boardId: Long,
       @PathVariable requestId: Long,
       @Valid @RequestBody input: StateChangeInput) {
-    boards.update(boardId) {
-      val b = validateBoard(user, boardId)
 
-      val s = create.fetchOne(STORY_REQUESTS, STORY_REQUESTS.ID.eq(requestId))
-          ?: throw notFound
-      if (boardId != s.fromBoardId) {
-        throw unauthorized
-      }
+    val b = validateBoard(user, boardId)
 
+    val s = create.fetchOne(STORY_REQUESTS, STORY_REQUESTS.ID.eq(requestId))
+        ?: throw notFound
+    if (boardId != s.fromBoardId) {
+      throw unauthorized
+    }
+
+    boards.updateAll(s.toBoardId, s.fromBoardId) {
       val state = valueOf(s.state)
       if (state == Pending || state == Accepted) {
         s.state = Withdrawn.name
@@ -428,14 +431,14 @@ open class BoardControllerK @Autowired constructor(
 
       create.delete(TICKETS)
           .where(TICKETS.ID.eq(ticket))
-          .execute();
+          .execute()
 
       create.update((NOTIFICATIONS))
           .set(NOTIFICATIONS.ACKNOWLEDGED, true)
           .where(NOTIFICATIONS.STORY_REQUEST_ID.eq(s.id))
           .and(NOTIFICATIONS.TYPE.eq(NotificationO.IncomingStoryRequest::class.simpleName)
               .or(NOTIFICATIONS.TYPE.eq(NotificationO.StoryRequestResubmitted::class.simpleName)))
-          .execute();
+          .execute()
 
       create.newRecord(NOTIFICATIONS).let {
         it.type = NotificationO.StoryRequestWithdrawn::class.simpleName
@@ -453,15 +456,16 @@ open class BoardControllerK @Autowired constructor(
       @PathVariable boardId: Long,
       @PathVariable requestId: Long,
       @Valid @RequestBody input: StateChangeInput) {
-    boards.update(boardId) {
-      val b = validateBoard(user, boardId)
 
-      val s = create.fetchOne(STORY_REQUESTS, STORY_REQUESTS.ID.eq(requestId))
-          ?: throw notFound
-      if (boardId != s.fromBoardId) {
-        throw unauthorized
-      }
+    val b = validateBoard(user, boardId)
 
+    val s = create.fetchOne(STORY_REQUESTS, STORY_REQUESTS.ID.eq(requestId))
+        ?: throw notFound
+    if (boardId != s.fromBoardId) {
+      throw unauthorized
+    }
+
+    boards.updateAll(s.toBoardId, s.fromBoardId) {
       val state = valueOf(s.state)
       if (state == Rejected || state == Withdrawn) {
         s.state = Pending.name
