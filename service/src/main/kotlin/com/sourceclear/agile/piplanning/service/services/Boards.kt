@@ -26,6 +26,7 @@ import org.jooq.impl.DefaultDSLContext
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import javax.persistence.EntityManager
 
 interface Boards {
   fun reconstruct(rawAssignments: Set<Solution>, boardId: Long): BoardO
@@ -41,12 +42,15 @@ open class BoardsImpl @Autowired constructor(
     private val create: DefaultDSLContext,
     private val webSockets: WebSockets,
     private val solutionRepository: SolutionRepository,
+    private val entityManager: EntityManager,
     private val notifications: Notifications) : Boards {
 
   @Transactional
   override fun <T> update(board: Long, f: () -> T): T {
     lock(board)
     val r = f()
+
+    entityManager.flush()
 
     // If f files, don't broadcast
     webSockets.broadcastBoardUpdate(board)
