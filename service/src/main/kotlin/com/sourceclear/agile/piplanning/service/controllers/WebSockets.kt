@@ -1,5 +1,6 @@
 package com.sourceclear.agile.piplanning.service.controllers
 
+import com.fasterxml.jackson.core.JsonProcessingException
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.KotlinModule
 import com.fasterxml.jackson.module.kotlin.readValue
@@ -47,23 +48,31 @@ open class WebSockets @Autowired constructor(
   }
 
   override fun handleTextMessage(session: WebSocketSession, message: TextMessage) {
-    val msg = objectMapper.readValue<MessageReq>(message.asBytes())
-    val email =
-        try {
-          jwtTokenProvider.getEmail(msg.token)
-        } catch (e: JwtAuthenticationException) {
-          // TODO return something?
-          return
-        }
+    try {
+      val msg = objectMapper.readValue<MessageReq>(message.asBytes())
+      val email =
+          try {
+            jwtTokenProvider.getEmail(msg.token)
+          } catch (e: JwtAuthenticationException) { // 401
+            return
+          }
+      reallyHandleTextMessage(session, email, msg)
+    } catch (e: JsonProcessingException) { // 400ish
+    } catch (e: Exception) { // 500ish
+      LOGGER.error("error occurred", e)
+      // TODO return something?
+    }
+  }
 
-    when (msg) {
+  private fun reallyHandleTextMessage(session: WebSocketSession, email: String, message: MessageReq) {
+    when (message) {
       is MessageReq.OpenedBoard -> {
         synchronized(lock) {
           forgetSession(session)
-          connectionsByBoard.getOrPut(msg.board) { mutableListOf() }.add(
+          connectionsByBoard.getOrPut(message.board) { mutableListOf() }.add(
               ConnectedClient(session = session, email = email))
-          LOGGER.debug("user connected to board {}", msg.board)
-          broadcastBoardUpdate(msg.board)
+          LOGGER.debug("user connected to board {}", message.board)
+          broadcastBoardUpdate(message.board)
         }
       }
       is MessageReq.OpenedBoardList -> {
@@ -75,43 +84,43 @@ open class WebSockets @Autowired constructor(
       }
       is MessageReq.EditingSprint -> {
         synchronized(lock) {
-          val interactions = locked.getOrDefault(msg.board, mutableListOf())
-          if (msg.done) {
+          val interactions = locked.getOrDefault(message.board, mutableListOf())
+          if (message.done) {
             interactions.removeIf {
-              it.user.uuid == session.id && it.element.let { e -> e is Element.Sprint && e.sprint == msg.sprint }
+              it.user.uuid == session.id && it.element.let { e -> e is Element.Sprint && e.sprint == message.sprint }
             }
           } else {
             interactions.add(Interaction(
                 ConnectedUser(email = email, uuid = session.id),
-                Element.Sprint(board = msg.board, sprint = msg.sprint)))
+                Element.Sprint(board = message.board, sprint = message.sprint)))
           }
         }
       }
       is MessageReq.EditingStory -> {
         synchronized(lock) {
-          val interactions = locked.getOrDefault(msg.board, mutableListOf())
-          if (msg.done) {
+          val interactions = locked.getOrDefault(message.board, mutableListOf())
+          if (message.done) {
             interactions.removeIf {
-              it.user.uuid == session.id && it.element.let { e -> e is Element.Story && e.story == msg.story }
+              it.user.uuid == session.id && it.element.let { e -> e is Element.Story && e.story == message.story }
             }
           } else {
             interactions.add(Interaction(
                 ConnectedUser(email = email, uuid = session.id),
-                Element.Story(board = msg.board, story = msg.story)))
+                Element.Story(board = message.board, story = message.story)))
           }
         }
       }
       is MessageReq.EditingEpic -> {
         synchronized(lock) {
-          val interactions = locked.getOrDefault(msg.board, mutableListOf())
-          if (msg.done) {
+          val interactions = locked.getOrDefault(message.board, mutableListOf())
+          if (message.done) {
             interactions.removeIf {
-              it.user.uuid == session.id && it.element.let { e -> e is Element.Epic && e.epic == msg.epic }
+              it.user.uuid == session.id && it.element.let { e -> e is Element.Epic && e.epic == message.epic }
             }
           } else {
             interactions.add(Interaction(
                 ConnectedUser(email = email, uuid = session.id),
-                Element.Epic(board = msg.board, epic = msg.epic)))
+                Element.Epic(board = message.board, epic = message.epic)))
           }
         }
       }
