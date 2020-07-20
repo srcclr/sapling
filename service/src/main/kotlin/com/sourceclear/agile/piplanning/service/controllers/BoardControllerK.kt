@@ -33,6 +33,7 @@ import com.sourceclear.agile.piplanning.service.repositories.BoardRepository
 import com.sourceclear.agile.piplanning.service.repositories.EpicRepository
 import com.sourceclear.agile.piplanning.service.repositories.SprintRepository
 import com.sourceclear.agile.piplanning.service.repositories.TicketRepository
+import com.sourceclear.agile.piplanning.service.services.Boards
 import org.jooq.impl.DSL
 import org.jooq.impl.DSL.max
 import org.jooq.impl.DSL.select
@@ -56,7 +57,7 @@ open class BoardControllerK @Autowired constructor(
     private val sprintRepository: SprintRepository,
     private val ticketRepository: TicketRepository,
     private val boardRepository: BoardRepository,
-    private val webSockets: WebSockets,
+    private val boards: Boards,
     private val create: DefaultDSLContext
 ) {
 
@@ -86,19 +87,21 @@ open class BoardControllerK @Autowired constructor(
   @PostMapping("/board/{boardId}/epics")
   @Transactional
   open fun createEpic(@PathVariable boardId: Long, @Valid @RequestBody epic: EpicI): EpicO {
-    val b = boardRepository.findById(boardId).orElseThrow(notFound)!!
-    val e = epicRepository.save(Epic(epic.name, epic.priority, b))
-    webSockets.broadcastBoardUpdate(boardId)
-    return EpicO(e.id, e.name, e.priority)
+    return boards.update(boardId) {
+      val b = boardRepository.findById(boardId).orElseThrow(notFound)!!
+      val e = epicRepository.save(Epic(epic.name, epic.priority, b))
+      EpicO(e.id, e.name, e.priority)
+    }
   }
 
   @PutMapping("/epic/{epicId}")
   @Transactional
   open fun updateEpic(@PathVariable epicId: Long, @Valid @RequestBody epic: EpicI) {
     val e = epicRepository.findById(epicId).orElseThrow(notFound)!!
-    e.name = epic.name
-    e.priority = epic.priority
-    webSockets.broadcastBoardUpdate(e.board.id)
+    boards.update(e.board.id) {
+      e.name = epic.name
+      e.priority = epic.priority
+    }
   }
 
   @DeleteMapping("/epic/{epicId}")
@@ -119,8 +122,9 @@ open class BoardControllerK @Autowired constructor(
     }
 
     val (board) = create.select(EPICS.BOARD_ID).from(EPICS).where(EPICS.ID.eq(epicId)).fetchOne()
-    epicRepository.deleteById(epicId)
-    webSockets.broadcastBoardUpdate(board)
+    boards.update(board) {
+      epicRepository.deleteById(epicId)
+    }
   }
 
   /**
@@ -129,10 +133,11 @@ open class BoardControllerK @Autowired constructor(
   @PutMapping("/epic/{epicId}/ticket/{ticketId}")
   @Transactional
   open fun moveTicket(@PathVariable epicId: Long, @PathVariable ticketId: Long) {
-    val e = epicRepository.findById(epicId).orElseThrow(notFound)!!
     val t = ticketRepository.findById(ticketId).orElseThrow(notFound)!!
-    t.epic = e
-    webSockets.broadcastBoardUpdate(t.board.id)
+    boards.update(t.board.id) {
+      val e = epicRepository.findById(epicId).orElseThrow(notFound)!!
+      t.epic = e
+    }
   }
 
   //
@@ -142,45 +147,49 @@ open class BoardControllerK @Autowired constructor(
   @PostMapping("/board/{boardId}/pins")
   @Transactional
   open fun createPin(@PathVariable boardId: Long, @Valid @RequestBody pin: PinI) {
-    val b = boardRepository.findWithPins(boardId).orElseThrow(notFound)!!
-    val s = sprintRepository.findById(pin.sprintId).orElseThrow(notFound)!!
-    val t = ticketRepository.findById(pin.ticketId).orElseThrow(notFound)!!
-    b.pins.removeIf { it.ticketId == pin.ticketId }
-    b.pins.add(Pin(s.id, t.id))
-    webSockets.broadcastBoardUpdate(boardId)
+    boards.update(boardId) {
+      val b = boardRepository.findWithPins(boardId).orElseThrow(notFound)!!
+      val s = sprintRepository.findById(pin.sprintId).orElseThrow(notFound)!!
+      val t = ticketRepository.findById(pin.ticketId).orElseThrow(notFound)!!
+      b.pins.removeIf { it.ticketId == pin.ticketId }
+      b.pins.add(Pin(s.id, t.id))
+    }
   }
 
   @PostMapping("/board/{boardId}/pins/all")
   @Transactional
   open fun pinAll(@PathVariable boardId: Long) {
-    create.fetchExists(BOARDS, BOARDS.ID.eq(boardId)) || throw notFound
+    boards.update(boardId) {
+      create.fetchExists(BOARDS, BOARDS.ID.eq(boardId)) || throw notFound
 
-    create.insertInto(TICKET_PINS, TICKET_PINS.TICKET_ID, TICKET_PINS.SPRINT_ID, TICKET_PINS.BOARD_ID)
-        .select(
-            select(SOLUTIONS.TICKET_ID, SOLUTIONS.SPRINT_ID, SOLUTIONS.BOARD_ID)
-                .from(SOLUTIONS)
-                .where(SOLUTIONS.BOARD_ID.eq(boardId)))
-        .execute()
-    webSockets.broadcastBoardUpdate(boardId)
+      create.insertInto(TICKET_PINS, TICKET_PINS.TICKET_ID, TICKET_PINS.SPRINT_ID, TICKET_PINS.BOARD_ID)
+          .select(
+              select(SOLUTIONS.TICKET_ID, SOLUTIONS.SPRINT_ID, SOLUTIONS.BOARD_ID)
+                  .from(SOLUTIONS)
+                  .where(SOLUTIONS.BOARD_ID.eq(boardId)))
+          .execute()
+    }
   }
 
   @DeleteMapping("/board/{boardId}/pins/all")
   @Transactional
   open fun unpinAll(@PathVariable boardId: Long) {
-    create.fetchExists(BOARDS, BOARDS.ID.eq(boardId)) || throw notFound
+    boards.update(boardId) {
+      create.fetchExists(BOARDS, BOARDS.ID.eq(boardId)) || throw notFound
 
-    create.delete(TICKET_PINS)
-        .where(TICKET_PINS.BOARD_ID.eq(boardId))
-        .execute()
-    webSockets.broadcastBoardUpdate(boardId)
+      create.delete(TICKET_PINS)
+          .where(TICKET_PINS.BOARD_ID.eq(boardId))
+          .execute()
+    }
   }
 
   @DeleteMapping("/board/{boardId}/pins")
   @Transactional
   open fun deletePin(@PathVariable boardId: Long, @Valid @RequestBody pin: PinI) {
-    val b = boardRepository.findWithPins(boardId).orElseThrow(notFound)!!
-    b.pins = b.pins.filterNotTo(HashSet()) { it.ticketId == pin.ticketId }
-    webSockets.broadcastBoardUpdate(boardId)
+    boards.update(boardId) {
+      val b = boardRepository.findWithPins(boardId).orElseThrow(notFound)!!
+      b.pins = b.pins.filterNotTo(HashSet()) { it.ticketId == pin.ticketId }
+    }
   }
 
   //
@@ -190,22 +199,24 @@ open class BoardControllerK @Autowired constructor(
   @PostMapping("/board/{boardId}/dependencies")
   @Transactional
   open fun createDep(@PathVariable boardId: Long, @Valid @RequestBody dep: DepI) {
-    if (dep.fromTicketId == dep.toTicketId) {
-      throw badRequest
+    boards.update(boardId) {
+      if (dep.fromTicketId == dep.toTicketId) {
+        throw badRequest
+      }
+      val b = boardRepository.findWithDeps(boardId).orElseThrow(notFound)!!
+      if (b.deps.none { it.fromTicketId == dep.fromTicketId && it.toTicketId == dep.toTicketId }) {
+        b.deps.add(Dependency(dep.fromTicketId, dep.toTicketId))
+      }
     }
-    val b = boardRepository.findWithDeps(boardId).orElseThrow(notFound)!!
-    if (b.deps.none { it.fromTicketId == dep.fromTicketId && it.toTicketId == dep.toTicketId }) {
-      b.deps.add(Dependency(dep.fromTicketId, dep.toTicketId))
-    }
-    webSockets.broadcastBoardUpdate(boardId)
   }
 
   @DeleteMapping("/board/{boardId}/dependencies")
   @Transactional
   open fun deleteDep(@PathVariable boardId: Long, @Valid @RequestBody dep: DepI) {
-    val b = boardRepository.findWithDeps(boardId).orElseThrow(notFound)!!
-    b.deps.remove(Dependency(dep.fromTicketId, dep.toTicketId))
-    webSockets.broadcastBoardUpdate(boardId)
+    boards.update(boardId) {
+      val b = boardRepository.findWithDeps(boardId).orElseThrow(notFound)!!
+      b.deps.remove(Dependency(dep.fromTicketId, dep.toTicketId))
+    }
   }
 
   //
@@ -217,23 +228,23 @@ open class BoardControllerK @Autowired constructor(
   open fun createStoryRequest(
       @AuthenticationPrincipal user: User,
       @PathVariable boardId: Long, @Valid @RequestBody storyRequest: StoryRequestI) {
-    val b = validateBoard(user, boardId)
+    boards.update(boardId) {
+      val b = validateBoard(user, boardId)
 
-    val s = create.newRecord(STORY_REQUESTS)
-    s.state = Pending.name
-    s.fromBoardId = boardId
-    fromStoryRequest(s, storyRequest, b.name)
-    // at this point there is no to-ticket
-    s.store()
+      val s = create.newRecord(STORY_REQUESTS)
+      s.state = Pending.name
+      s.fromBoardId = boardId
+      fromStoryRequest(s, storyRequest, b.name)
+      // at this point there is no to-ticket
+      s.store()
 
-    create.newRecord(NOTIFICATIONS).let {
-      it.type = NotificationO.IncomingStoryRequest::class.simpleName
-      it.storyRequestId = s.id
-      it.recipientId = s.toBoardId
-      it.store()
+      create.newRecord(NOTIFICATIONS).let {
+        it.type = NotificationO.IncomingStoryRequest::class.simpleName
+        it.storyRequestId = s.id
+        it.recipientId = s.toBoardId
+        it.store()
+      }
     }
-
-    webSockets.broadcastBoardUpdate(boardId)
   }
 
   @PutMapping("/board/{boardId}/request/{requestId}")
@@ -243,15 +254,15 @@ open class BoardControllerK @Autowired constructor(
       @PathVariable boardId: Long,
       @PathVariable requestId: Long,
       @Valid @RequestBody storyRequest: StoryRequestI) {
-    val b = validateBoard(user, boardId)
+    boards.update(boardId) {
+      val b = validateBoard(user, boardId)
 
-    val s = create.fetchOne(STORY_REQUESTS, STORY_REQUESTS.ID.eq(requestId))
-        ?: throw notFound
-    // similar to create, except only the fields below can be edited
-    fromStoryRequest(s, storyRequest, b.name)
-    s.store()
-
-    webSockets.broadcastBoardUpdate(boardId)
+      val s = create.fetchOne(STORY_REQUESTS, STORY_REQUESTS.ID.eq(requestId))
+          ?: throw notFound
+      // similar to create, except only the fields below can be edited
+      fromStoryRequest(s, storyRequest, b.name)
+      s.store()
+    }
   }
 
   private fun fromStoryRequest(s: StoryRequestsRecord, storyRequest: StoryRequestI, boardName: String) {
@@ -283,54 +294,55 @@ open class BoardControllerK @Autowired constructor(
       @PathVariable boardId: Long,
       @PathVariable requestId: Long,
       @Valid @RequestBody input: StateChangeInput) {
-    val b = validateBoard(user, boardId)
 
-    val s = create.fetchOne(STORY_REQUESTS, STORY_REQUESTS.ID.eq(requestId))
-        ?: throw notFound
-    if (boardId != s.toBoardId) { // has to be sent from the receiving board
-      throw unauthorized
+    boards.update(boardId) {
+      val b = validateBoard(user, boardId)
+
+      val s = create.fetchOne(STORY_REQUESTS, STORY_REQUESTS.ID.eq(requestId))
+          ?: throw notFound
+      if (boardId != s.toBoardId) { // has to be sent from the receiving board
+        throw unauthorized
+      }
+
+      if (valueOf(s.state) == Pending) {
+        s.state = Accepted.name
+      } else {
+        throw badRequest
+      }
+
+      val t = create.newRecord(TICKETS)
+      t.boardId = s.toBoardId
+      t.description = s.toTicketDescription
+      t.weight = s.toTicketWeight
+      t.epicId = s.toTicketEpicId
+      t.store()
+
+      s.notes = addToNote(s.notes, b.name, input.notes)
+
+      // Get the ticket id that was just filled in
+      s.toTicketId = t.id
+      s.store()
+
+      create.newRecord(SOLUTIONS).let {
+        it.boardId = s.toBoardId
+        it.ticketId = t.id
+        it.sprintId = s.toTicketSprintId
+        it.preview = false
+        it.store()
+      }
+
+      create.newRecord(NOTIFICATIONS).let {
+        it.type = NotificationO.StoryRequestAccepted::class.simpleName
+        it.storyRequestId = s.id
+        it.recipientId = s.fromBoardId
+        it.store()
+      }
+
+      create.update(NOTIFICATIONS)
+          .set(NOTIFICATIONS.ACKNOWLEDGED, true)
+          .where(NOTIFICATIONS.STORY_REQUEST_ID.eq(requestId).and(NOTIFICATIONS.TYPE.eq(NotificationO.IncomingStoryRequest::class.simpleName)))
+          .execute()
     }
-
-    if (valueOf(s.state) == Pending) {
-      s.state = Accepted.name
-    } else {
-      throw badRequest
-    }
-
-    val t = create.newRecord(TICKETS)
-    t.boardId = s.toBoardId
-    t.description = s.toTicketDescription
-    t.weight = s.toTicketWeight
-    t.epicId = s.toTicketEpicId
-    t.store()
-
-    s.notes = addToNote(s.notes, b.name, input.notes)
-
-    // Get the ticket id that was just filled in
-    s.toTicketId = t.id
-    s.store()
-
-    create.newRecord(SOLUTIONS).let {
-      it.boardId = s.toBoardId
-      it.ticketId = t.id
-      it.sprintId = s.toTicketSprintId
-      it.preview = false
-      it.store()
-    }
-
-    create.newRecord(NOTIFICATIONS).let {
-      it.type = NotificationO.StoryRequestAccepted::class.simpleName
-      it.storyRequestId = s.id
-      it.recipientId = s.fromBoardId
-      it.store()
-    }
-
-    create.update(NOTIFICATIONS)
-        .set(NOTIFICATIONS.ACKNOWLEDGED, true)
-        .where(NOTIFICATIONS.STORY_REQUEST_ID.eq(requestId).and(NOTIFICATIONS.TYPE.eq(NotificationO.IncomingStoryRequest::class.simpleName)))
-        .execute();
-
-    webSockets.broadcastBoardUpdate(boardId)
   }
 
   @PostMapping("/board/{boardId}/request/{requestId}/reject")
@@ -340,47 +352,48 @@ open class BoardControllerK @Autowired constructor(
       @PathVariable boardId: Long,
       @PathVariable requestId: Long,
       @Valid @RequestBody input: StateChangeInput) {
-    val b = validateBoard(user, boardId)
+    boards.update(boardId) {
+      val b = validateBoard(user, boardId)
 
-    val s = create.fetchOne(STORY_REQUESTS, STORY_REQUESTS.ID.eq(requestId))
-        ?: throw notFound
-    if (boardId != s.toBoardId) { // has to be sent from the receiving board
-      throw unauthorized
-    }
+      val s = create.fetchOne(STORY_REQUESTS, STORY_REQUESTS.ID.eq(requestId))
+          ?: throw notFound
+      if (boardId != s.toBoardId) { // has to be sent from the receiving board
+        throw unauthorized
+      }
 
-    if (valueOf(s.state) == Pending) {
-      s.state = Rejected.name
-    } else {
-      throw badRequest
-    }
+      if (valueOf(s.state) == Pending) {
+        s.state = Rejected.name
+      } else {
+        throw badRequest
+      }
 
-    s.notes = addToNote(s.notes, b.name, input.notes)
+      s.notes = addToNote(s.notes, b.name, input.notes)
 
-    // Null this before deleting, otherwise it cascades and goes as well
-    val ticket = s.toTicketId
-    s.toTicketId = null
-    s.store()
+      // Null this before deleting, otherwise it cascades and goes as well
+      val ticket = s.toTicketId
+      s.toTicketId = null
+      s.store()
 
-    if (ticket != null) {
-      // If the ticket hasn't been created and the story was rejected outright
-      create.delete(TICKETS)
-          .where(TICKETS.ID.eq(ticket))
+      if (ticket != null) {
+        // If the ticket hasn't been created and the story was rejected outright
+        create.delete(TICKETS)
+            .where(TICKETS.ID.eq(ticket))
+            .execute();
+      }
+
+      create.newRecord(NOTIFICATIONS).let {
+        it.type = NotificationO.StoryRequestRejected::class.simpleName
+        it.storyRequestId = s.id
+        it.recipientId = s.fromBoardId
+        it.store()
+      }
+
+      create.update(NOTIFICATIONS)
+          .set(NOTIFICATIONS.ACKNOWLEDGED, true)
+          .where(NOTIFICATIONS.STORY_REQUEST_ID.eq(requestId).and(NOTIFICATIONS.TYPE.eq(NotificationO.IncomingStoryRequest::class.simpleName)))
           .execute();
+
     }
-
-    create.newRecord(NOTIFICATIONS).let {
-      it.type = NotificationO.StoryRequestRejected::class.simpleName
-      it.storyRequestId = s.id
-      it.recipientId = s.fromBoardId
-      it.store()
-    }
-
-    create.update(NOTIFICATIONS)
-        .set(NOTIFICATIONS.ACKNOWLEDGED, true)
-        .where(NOTIFICATIONS.STORY_REQUEST_ID.eq(requestId).and(NOTIFICATIONS.TYPE.eq(NotificationO.IncomingStoryRequest::class.simpleName)))
-        .execute();
-
-    webSockets.broadcastBoardUpdate(boardId)
   }
 
   @PostMapping("/board/{boardId}/request/{requestId}/withdraw")
@@ -390,47 +403,47 @@ open class BoardControllerK @Autowired constructor(
       @PathVariable boardId: Long,
       @PathVariable requestId: Long,
       @Valid @RequestBody input: StateChangeInput) {
-    val b = validateBoard(user, boardId)
+    boards.update(boardId) {
+      val b = validateBoard(user, boardId)
 
-    val s = create.fetchOne(STORY_REQUESTS, STORY_REQUESTS.ID.eq(requestId))
-        ?: throw notFound
-    if (boardId != s.fromBoardId) {
-      throw unauthorized
+      val s = create.fetchOne(STORY_REQUESTS, STORY_REQUESTS.ID.eq(requestId))
+          ?: throw notFound
+      if (boardId != s.fromBoardId) {
+        throw unauthorized
+      }
+
+      val state = valueOf(s.state)
+      if (state == Pending || state == Accepted) {
+        s.state = Withdrawn.name
+      } else {
+        throw badRequest
+      }
+
+      s.notes = addToNote(s.notes, b.name, input.notes)
+
+      // Null this before deleting, otherwise it cascades and goes as well
+      val ticket = s.toTicketId
+      s.toTicketId = null
+      s.store()
+
+      create.delete(TICKETS)
+          .where(TICKETS.ID.eq(ticket))
+          .execute();
+
+      create.update((NOTIFICATIONS))
+          .set(NOTIFICATIONS.ACKNOWLEDGED, true)
+          .where(NOTIFICATIONS.STORY_REQUEST_ID.eq(s.id))
+          .and(NOTIFICATIONS.TYPE.eq(NotificationO.IncomingStoryRequest::class.simpleName)
+              .or(NOTIFICATIONS.TYPE.eq(NotificationO.StoryRequestResubmitted::class.simpleName)))
+          .execute();
+
+      create.newRecord(NOTIFICATIONS).let {
+        it.type = NotificationO.StoryRequestWithdrawn::class.simpleName
+        it.storyRequestId = s.id
+        it.recipientId = s.toBoardId
+        it.store()
+      }
     }
-
-    val state = valueOf(s.state)
-    if (state == Pending || state == Accepted) {
-      s.state = Withdrawn.name
-    } else {
-      throw badRequest
-    }
-
-    s.notes = addToNote(s.notes, b.name, input.notes)
-
-    // Null this before deleting, otherwise it cascades and goes as well
-    val ticket = s.toTicketId
-    s.toTicketId = null
-    s.store()
-
-    create.delete(TICKETS)
-        .where(TICKETS.ID.eq(ticket))
-        .execute();
-
-    create.update((NOTIFICATIONS))
-        .set(NOTIFICATIONS.ACKNOWLEDGED, true)
-        .where(NOTIFICATIONS.STORY_REQUEST_ID.eq(s.id))
-        .and(NOTIFICATIONS.TYPE.eq(NotificationO.IncomingStoryRequest::class.simpleName)
-            .or(NOTIFICATIONS.TYPE.eq(NotificationO.StoryRequestResubmitted::class.simpleName)))
-        .execute();
-
-    create.newRecord(NOTIFICATIONS).let {
-      it.type = NotificationO.StoryRequestWithdrawn::class.simpleName
-      it.storyRequestId = s.id
-      it.recipientId = s.toBoardId
-      it.store()
-    }
-
-    webSockets.broadcastBoardUpdate(boardId)
   }
 
   @PostMapping("/board/{boardId}/request/{requestId}/resubmit")
@@ -440,31 +453,31 @@ open class BoardControllerK @Autowired constructor(
       @PathVariable boardId: Long,
       @PathVariable requestId: Long,
       @Valid @RequestBody input: StateChangeInput) {
-    val b = validateBoard(user, boardId)
+    boards.update(boardId) {
+      val b = validateBoard(user, boardId)
 
-    val s = create.fetchOne(STORY_REQUESTS, STORY_REQUESTS.ID.eq(requestId))
-        ?: throw notFound
-    if (boardId != s.fromBoardId) {
-      throw unauthorized
+      val s = create.fetchOne(STORY_REQUESTS, STORY_REQUESTS.ID.eq(requestId))
+          ?: throw notFound
+      if (boardId != s.fromBoardId) {
+        throw unauthorized
+      }
+
+      val state = valueOf(s.state)
+      if (state == Rejected || state == Withdrawn) {
+        s.state = Pending.name
+      } else {
+        throw badRequest
+      }
+      s.notes = addToNote(s.notes, b.name, input.notes)
+      s.store()
+
+      create.newRecord(NOTIFICATIONS).let {
+        it.type = NotificationO.StoryRequestResubmitted::class.simpleName
+        it.storyRequestId = s.id
+        it.recipientId = s.toBoardId
+        it.store()
+      }
     }
-
-    val state = valueOf(s.state)
-    if (state == Rejected || state == Withdrawn) {
-      s.state = Pending.name
-    } else {
-      throw badRequest
-    }
-    s.notes = addToNote(s.notes, b.name, input.notes)
-    s.store()
-
-    create.newRecord(NOTIFICATIONS).let {
-      it.type = NotificationO.StoryRequestResubmitted::class.simpleName
-      it.storyRequestId = s.id
-      it.recipientId = s.toBoardId
-      it.store()
-    }
-
-    webSockets.broadcastBoardUpdate(boardId)
   }
 
   @GetMapping("/boards/dependencies")
@@ -511,17 +524,17 @@ open class BoardControllerK @Autowired constructor(
       @AuthenticationPrincipal user: User,
       @PathVariable boardId: Long,
       @PathVariable notificationId: Long) {
-    validateBoard(user, boardId)
+    boards.update(boardId) {
+      validateBoard(user, boardId)
 
-    val n = create.selectFrom(NOTIFICATIONS)
-        .where(NOTIFICATIONS.ID.eq(notificationId).and(NOTIFICATIONS.RECIPIENT_ID.eq(boardId)))
-        .fetchOne()
-        ?: throw badRequest
+      val n = create.selectFrom(NOTIFICATIONS)
+          .where(NOTIFICATIONS.ID.eq(notificationId).and(NOTIFICATIONS.RECIPIENT_ID.eq(boardId)))
+          .fetchOne()
+          ?: throw badRequest
 
-    n.acknowledged = true
-    n.store()
-
-    webSockets.broadcastBoardUpdate(boardId)
+      n.acknowledged = true
+      n.store()
+    }
   }
 
   private fun validateBoard(user: User, boardId: Long): BoardsRecord {

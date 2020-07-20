@@ -147,46 +147,48 @@ public class BoardController {
   @Transactional
   public void updateSprint(@Valid @RequestBody SprintE sprint,
                            @PathVariable long sprintId) {
+
     Sprint sprint1 = sprintRepository.findById(sprintId)
         .orElseThrow(notFound);
 
-    // Removing tickets is done in another endpoint
-    sprint1.setName(sprint.getName());
-    sprint1.setGoal(sprint.getGoal());
+    boards.update(sprint1.getBoard().getId(), () -> {
+      // Removing tickets is done in another endpoint
+      sprint1.setName(sprint.getName());
+      sprint1.setGoal(sprint.getGoal());
 
-    if (sprint1.getCapacity() != sprint.getCapacity()) {
-      sprint1.setCapacity(sprint.getCapacity());
-    }
+      if (sprint1.getCapacity() != sprint.getCapacity()) {
+        sprint1.setCapacity(sprint.getCapacity());
+      }
 
-    // TODO fix ordinal?
-
-    webSockets.broadcastBoardUpdate(sprint1.getBoard().getId());
+      // TODO fix ordinal?
+      return null;
+    });
   }
 
   @PostMapping("/board/{boardId}/sprints")
   @Transactional
   public ResponseEntity<SprintO> createSprint(@Valid @RequestBody SprintE sprint,
                                               @PathVariable long boardId) {
-    Board board = boardRepository.findToSolve(boardId)
-        .orElseThrow(notFound);
+    return boards.update(boardId, () -> {
+      Board board = boardRepository.findToSolve(boardId)
+          .orElseThrow(notFound);
 
-    Sprint s = new Sprint();
-    s.setCapacity(sprint.getCapacity());
-    s.setName(sprint.getName());
-    s.setBoard(board);
-    s.setGoal(sprint.getGoal());
+      Sprint s = new Sprint();
+      s.setCapacity(sprint.getCapacity());
+      s.setName(sprint.getName());
+      s.setBoard(board);
+      s.setGoal(sprint.getGoal());
 
-    s.setOrdinal(1 + board.getSprints().stream()
-        .map(Sprint::getOrdinal)
-        .max(Comparator.naturalOrder())
-        .orElse(0));
+      s.setOrdinal(1 + board.getSprints().stream()
+          .map(Sprint::getOrdinal)
+          .max(Comparator.naturalOrder())
+          .orElse(0));
 
-    s = sprintRepository.save(s);
-    board.getSprints().add(s);
+      s = sprintRepository.save(s);
+      board.getSprints().add(s);
 
-    webSockets.broadcastBoardUpdate(board.getId());
-
-    return ResponseEntity.ok(new SprintO(s.getId(), s.getName(), s.getGoal(), s.getCapacity(), new ArrayList<>()));
+      return ResponseEntity.ok(new SprintO(s.getId(), s.getName(), s.getGoal(), s.getCapacity(), new ArrayList<>()));
+    });
   }
 
   @DeleteMapping("/sprint/{sprintId}")
@@ -196,9 +198,10 @@ public class BoardController {
     Sprint sprint = sprintRepository.findById(sprintId)
         .orElseThrow(notFound);
 
-    sprintRepository.deleteById(sprintId);
-
-    webSockets.broadcastBoardUpdate(sprint.getBoard().getId());
+    boards.update(sprint.getBoard().getId(), () -> {
+      sprintRepository.deleteById(sprintId);
+      return null;
+    });
   }
 
   @PutMapping("/ticket/{ticketId}")
@@ -208,22 +211,24 @@ public class BoardController {
     Ticket ticket1 = ticketRepository.findById(ticketId)
         .orElseThrow(notFound);
 
-    // Changing epic is done elsewhere
+    boards.update(ticket1.getBoard().getId(), () -> {
+      // Changing epic is done elsewhere
 
-    boolean notOurTicket = create.fetchExists(
-        selectOne().from(STORY_REQUESTS)
-            .where(STORY_REQUESTS.TO_TICKET_ID.eq(ticketId)));
+      boolean notOurTicket = create.fetchExists(
+          selectOne().from(STORY_REQUESTS)
+              .where(STORY_REQUESTS.TO_TICKET_ID.eq(ticketId)));
 
-    if (!notOurTicket) {
-      ticket1.setDescription(ticket.getDescription());
-      // otherwise attempts to change the description will be ignored
-    }
+      if (!notOurTicket) {
+        ticket1.setDescription(ticket.getDescription());
+        // otherwise attempts to change the description will be ignored
+      }
 
-    if (ticket1.getWeight() != ticket.getWeight()) {
-      ticket1.setWeight(ticket.getWeight());
-    }
+      if (ticket1.getWeight() != ticket.getWeight()) {
+        ticket1.setWeight(ticket.getWeight());
+      }
 
-    webSockets.broadcastBoardUpdate(ticket1.getBoard().getId());
+      return null;
+    });
   }
 
   @PostMapping("/board/{boardId}/epic/{epicId}/tickets")
@@ -231,17 +236,17 @@ public class BoardController {
   public ResponseEntity<TicketO> createTicket(@Valid @RequestBody TicketI ticket,
                                               @PathVariable long epicId,
                                               @PathVariable long boardId) {
-    Board board = boardRepository.findById(boardId)
-        .orElseThrow(notFound);
-    Epic epic = epicRepository.findById(epicId)
-        .orElseThrow(notFound);
-    Ticket t = new Ticket(board, epic, ticket);
-    t = ticketRepository.save(t);
+    return boards.update(boardId, () -> {
+      Board board = boardRepository.findById(boardId)
+          .orElseThrow(notFound);
+      Epic epic = epicRepository.findById(epicId)
+          .orElseThrow(notFound);
+      Ticket t = new Ticket(board, epic, ticket);
+      t = ticketRepository.save(t);
 
-    webSockets.broadcastBoardUpdate(board.getId());
-
-    return ResponseEntity.ok(new TicketO(t.getId(), t.getDescription(), t.getWeight(), epic.getId(),
-        null, new HashSet<>(), new HashSet<>(), false));
+      return ResponseEntity.ok(new TicketO(t.getId(), t.getDescription(), t.getWeight(), epic.getId(),
+          null, new HashSet<>(), new HashSet<>(), false));
+    });
   }
 
   @DeleteMapping("/ticket/{ticketId}")
@@ -261,9 +266,10 @@ public class BoardController {
     Ticket ticket = ticketRepository.findById(ticketId)
         .orElseThrow(notFound);
 
-    ticketRepository.deleteById(ticketId);
-
-    webSockets.broadcastBoardUpdate(ticket.getBoard().getId());
+    boards.update(ticket.getBoard().getId(), () -> {
+      ticketRepository.deleteById(ticketId);
+      return null;
+    });
   }
 
   private static final String INPUT_ISSUE_KEY = "Issue key";
@@ -433,11 +439,13 @@ public class BoardController {
   @CrossOrigin
   @Transactional
   public void acceptPreview(@PathVariable long boardId) {
-    Board board = boardRepository.findById(boardId)
-        .orElseThrow(notFound);
-    solutionRepository.deleteRealSolution(board);
-    solutionRepository.acceptPreviewSolution(board);
-    webSockets.broadcastBoardUpdate(boardId);
+    boards.update(boardId, () -> {
+      Board board = boardRepository.findById(boardId)
+          .orElseThrow(notFound);
+      solutionRepository.deleteRealSolution(board);
+      solutionRepository.acceptPreviewSolution(board);
+      return null;
+    });
   }
 
   @DeleteMapping(value = "/board/{boardId}/preview")
@@ -598,72 +606,71 @@ public class BoardController {
   }
 
   private Map<String, Integer> importCsv(byte[] csv, long boardId, boolean keepIssueKey) {
+    return boards.update(boardId, () -> {
+      Board board = boardRepository.findById(boardId)
+          .orElseThrow(notFound);
 
-    Board board = boardRepository.findById(boardId)
-        .orElseThrow(notFound);
+      // More queries
+      int[] ordinal = {board.getSprints().stream().map(Sprint::getOrdinal).max(Comparator.comparingInt(i -> i)).orElse(1)};
+      int[] priority = {board.getEpics().stream().map(Epic::getPriority).max(Comparator.comparingInt(i -> i)).orElse(1)};
 
-    // More queries
-    int[] ordinal = {board.getSprints().stream().map(Sprint::getOrdinal).max(Comparator.comparingInt(i -> i)).orElse(1)};
-    int[] priority = {board.getEpics().stream().map(Epic::getPriority).max(Comparator.comparingInt(i -> i)).orElse(1)};
+      try (InputStreamReader reader = new InputStreamReader(new ByteArrayInputStream(csv))) {
 
-    try (InputStreamReader reader = new InputStreamReader(new ByteArrayInputStream(csv))) {
+        int[] errors = {0};
+        Set<TicketCU> tickets = StreamSupport.stream(parseCsv(reader).spliterator(), false)
+            .flatMap(r -> {
+              try {
+                // Do this manually because inputs are probably barely CSV and need fiddling with
+                return Stream.of(
+                    new TicketCU(
+                        (keepIssueKey ? r.get(INPUT_ISSUE_KEY) + " " : "") + r.get(INPUT_SUMMARY),
+                        // JIRA...
+                        Math.round(Float.parseFloat(StringUtils.defaultIfBlank(r.get(INPUT_STORY_POINTS), "0"))),
+                        Try(() -> Optional.of(r.get(INPUT_SPRINT)), Optional.empty()),
+                        r.get(INPUT_EPIC)));
+              } catch (Exception e) {
+                LOGGER.debug("failed to parse csv record", e);
+                ++errors[0];
+                return Stream.of();
+              }
+            }).collect(Collectors.toSet());
 
-      int[] errors = {0};
-      Set<TicketCU> tickets = StreamSupport.stream(parseCsv(reader).spliterator(), false)
-          .flatMap(r -> {
-            try {
-              // Do this manually because inputs are probably barely CSV and need fiddling with
-              return Stream.of(
-                  new TicketCU(
-                      (keepIssueKey ? r.get(INPUT_ISSUE_KEY) + " " : "") + r.get(INPUT_SUMMARY),
-                      // JIRA...
-                      Math.round(Float.parseFloat(StringUtils.defaultIfBlank(r.get(INPUT_STORY_POINTS), "0"))),
-                      Try(() -> Optional.of(r.get(INPUT_SPRINT)), Optional.empty()),
-                      r.get(INPUT_EPIC)));
-            } catch (Exception e) {
-              LOGGER.debug("failed to parse csv record", e);
-              ++errors[0];
-              return Stream.of();
-            }
-          }).collect(Collectors.toSet());
+        if (tickets.isEmpty()) {
+          throw new IllegalArgumentException("no stories could be parsed from csv file");
+        }
 
-      if (tickets.isEmpty()) {
-        throw new IllegalArgumentException("no stories could be parsed from csv file");
+        // Epics are given arbitrary but differing priorities
+        var epics = tickets.stream().map(TicketCU::getEpic)
+            .distinct()
+            .collect(Collectors.toMap(e -> e, e -> new Epic(e, ++priority[0], board)));
+        board.getEpics().addAll(epics.values());
+
+        // Sprints are ordered similarly and given an arbitrary capacity
+        var sprints = tickets.stream().map(TicketCU::getSprint)
+            .flatMap(Optional::stream)
+            .distinct()
+            .map(s -> new Sprint(board, s, "", 20, ++ordinal[0]))
+            .collect(Collectors.toList());
+        board.getSprints().addAll(sprints);
+
+        // Silently drop tickets with invalid epics
+        List<Ticket> tix = tickets.stream().filter(t -> epics.containsKey(t.getEpic()))
+            .map(t -> new Ticket(board, epics.get(t.getEpic()), t))
+            .collect(toList());
+
+        board.getTickets().addAll(tix);
+
+        LOGGER.debug("added {} epics, {} sprints, {} tickets; {} failed to parse",
+            epics.size(), sprints.size(), tickets.size(), errors[0]);
+
+        return Map.of("epics", epics.size(), "sprints", sprints.size(), "tickets", tickets.size(), "errors", errors[0]);
+      } catch (IllegalArgumentException e) {
+        throw badRequest.apply(e.getMessage());
+      } catch (Exception e) {
+        LOGGER.debug("failed to import", e);
+        throw internalServerError;
       }
-
-      // Epics are given arbitrary but differing priorities
-      var epics = tickets.stream().map(TicketCU::getEpic)
-          .distinct()
-          .collect(Collectors.toMap(e -> e, e -> new Epic(e, ++priority[0], board)));
-      board.getEpics().addAll(epics.values());
-
-      // Sprints are ordered similarly and given an arbitrary capacity
-      var sprints = tickets.stream().map(TicketCU::getSprint)
-          .flatMap(Optional::stream)
-          .distinct()
-          .map(s -> new Sprint(board, s, "", 20, ++ordinal[0]))
-          .collect(Collectors.toList());
-      board.getSprints().addAll(sprints);
-
-      // Silently drop tickets with invalid epics
-      List<Ticket> tix = tickets.stream().filter(t -> epics.containsKey(t.getEpic()))
-          .map(t -> new Ticket(board, epics.get(t.getEpic()), t))
-          .collect(toList());
-
-      board.getTickets().addAll(tix);
-
-      LOGGER.debug("added {} epics, {} sprints, {} tickets; {} failed to parse",
-          epics.size(), sprints.size(), tickets.size(), errors[0]);
-
-      webSockets.broadcastBoardUpdate(board.getId());
-
-      return Map.of("epics", epics.size(), "sprints", sprints.size(), "tickets", tickets.size(), "errors", errors[0]);
-    } catch (IllegalArgumentException e) {
-      throw badRequest.apply(e.getMessage());
-    } catch (Exception e) {
-      LOGGER.debug("failed to import", e);
-      throw internalServerError;
-    }
+    });
   }
 
   private static CSVParser parseCsv(InputStreamReader reader) throws IOException {

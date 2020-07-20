@@ -44,6 +44,7 @@ props:
   additional-allowed-origins:
     - https://sapling.netlify.com
     - http://localhost:3000
+    - http://localhost:3001
     - http://localhost:8005
 
 solver:

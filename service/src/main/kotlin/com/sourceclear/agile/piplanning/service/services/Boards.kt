@@ -8,6 +8,7 @@ import com.sourceclear.agile.piplanning.objects.SprintO
 import com.sourceclear.agile.piplanning.objects.StoryRequestO
 import com.sourceclear.agile.piplanning.objects.TicketO
 import com.sourceclear.agile.piplanning.service.configs.Exceptions
+import com.sourceclear.agile.piplanning.service.controllers.WebSockets
 import com.sourceclear.agile.piplanning.service.entities.Solution
 import com.sourceclear.agile.piplanning.service.jooq.tables.Boards.BOARDS
 import com.sourceclear.agile.piplanning.service.jooq.tables.Epics.EPICS
@@ -31,13 +32,35 @@ interface Boards {
   fun useCurrentSolution(boardId: Long): BoardO
   fun useCurrentPreview(boardId: Long): BoardO
   fun getBoardList(): List<BoardL>
+  fun lock(board: Long)
+  fun <T> update(board: Long, f: () -> T): T
 }
 
 @Service
 open class BoardsImpl @Autowired constructor(
     private val create: DefaultDSLContext,
+    private val webSockets: WebSockets,
     private val solutionRepository: SolutionRepository,
     private val notifications: Notifications) : Boards {
+
+  @Transactional
+  override fun <T> update(board: Long, f: () -> T): T {
+    lock(board)
+    val r = f()
+
+    // If f files, don't broadcast
+    webSockets.broadcastBoardUpdate(board)
+    return r
+  }
+
+  @Transactional
+  override fun lock(board: Long) {
+    create.select()
+        .from(BOARDS)
+        .where(BOARDS.ID.eq(board))
+        .forUpdate()
+        .fetch()
+  }
 
   @Transactional
   override fun getBoardList(): List<BoardL> {

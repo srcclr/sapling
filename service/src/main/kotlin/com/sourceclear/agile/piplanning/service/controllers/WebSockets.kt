@@ -4,16 +4,17 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.KotlinModule
 import com.fasterxml.jackson.module.kotlin.readValue
 import com.sourceclear.agile.piplanning.objects.BoardO
+import com.sourceclear.agile.piplanning.objects.ConnectedUser
 import com.sourceclear.agile.piplanning.objects.Element
 import com.sourceclear.agile.piplanning.objects.Interaction
 import com.sourceclear.agile.piplanning.objects.MessageReq
 import com.sourceclear.agile.piplanning.objects.MessageRes
-import com.sourceclear.agile.piplanning.objects.ConnectedUser
 import com.sourceclear.agile.piplanning.service.components.JwtTokenProvider
 import com.sourceclear.agile.piplanning.service.exceptions.JwtAuthenticationException
 import com.sourceclear.agile.piplanning.service.services.Boards
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.context.annotation.Lazy
 import org.springframework.stereotype.Component
 import org.springframework.web.socket.CloseStatus
 import org.springframework.web.socket.TextMessage
@@ -23,8 +24,11 @@ import org.springframework.web.socket.handler.AbstractWebSocketHandler
 data class ConnectedClient(val session: WebSocketSession, val email: String)
 
 @Component
-class WebSockets @Autowired constructor(
-    private val boards: Boards,
+open class WebSockets @Autowired constructor(
+    // Lazy has to be here instead of in Boards.
+    // There's some silly non-symmetry around this not having an interface because
+    // it has to inherit that abstract class below.
+    @Lazy private val boards: Boards,
     private val jwtTokenProvider: JwtTokenProvider
 ) : AbstractWebSocketHandler() {
 
