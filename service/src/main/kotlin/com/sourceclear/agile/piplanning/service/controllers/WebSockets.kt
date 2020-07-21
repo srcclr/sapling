@@ -84,7 +84,7 @@ open class WebSockets @Autowired constructor(
       }
       is MessageReq.EditingSprint -> {
         synchronized(lock) {
-          val interactions = locked.getOrDefault(message.board, mutableListOf())
+          val interactions = locked.getOrPut(message.board) { mutableListOf() }
           if (message.done) {
             interactions.removeIf {
               it.user.uuid == session.id && it.element.let { e -> e is Element.Sprint && e.sprint == message.sprint }
@@ -94,11 +94,12 @@ open class WebSockets @Autowired constructor(
                 ConnectedUser(email = email, uuid = session.id),
                 Element.Sprint(board = message.board, sprint = message.sprint)))
           }
+          broadcastBoardUpdate(message.board)
         }
       }
       is MessageReq.EditingStory -> {
         synchronized(lock) {
-          val interactions = locked.getOrDefault(message.board, mutableListOf())
+          val interactions = locked.getOrPut(message.board) { mutableListOf() }
           if (message.done) {
             interactions.removeIf {
               it.user.uuid == session.id && it.element.let { e -> e is Element.Story && e.story == message.story }
@@ -108,11 +109,12 @@ open class WebSockets @Autowired constructor(
                 ConnectedUser(email = email, uuid = session.id),
                 Element.Story(board = message.board, story = message.story)))
           }
+          broadcastBoardUpdate(message.board)
         }
       }
       is MessageReq.EditingEpic -> {
         synchronized(lock) {
-          val interactions = locked.getOrDefault(message.board, mutableListOf())
+          val interactions = locked.getOrPut(message.board) { mutableListOf() }
           if (message.done) {
             interactions.removeIf {
               it.user.uuid == session.id && it.element.let { e -> e is Element.Epic && e.epic == message.epic }
@@ -122,6 +124,7 @@ open class WebSockets @Autowired constructor(
                 ConnectedUser(email = email, uuid = session.id),
                 Element.Epic(board = message.board, epic = message.epic)))
           }
+          broadcastBoardUpdate(message.board)
         }
       }
     }
@@ -135,10 +138,10 @@ open class WebSockets @Autowired constructor(
     synchronized(lock) {
       val clients = connectionsByBoard.getOrDefault(board.id, mutableListOf())
       clients.forEach { client ->
-        client.session.sendMessage(TextMessage(objectMapper.writeValueAsBytes(
-            MessageRes.Board(board,
-                clients.map { ConnectedUser(email = it.email, uuid = it.session.id) },
-                locked.getOrDefault(board.id, mutableListOf()).filter { it.user.uuid != client.session.id }))))
+        val b = MessageRes.Board(board,
+            clients.map { ConnectedUser(email = it.email, uuid = it.session.id) },
+            locked.getOrDefault(board.id, mutableListOf()).filter { it.user.uuid != client.session.id })
+        client.session.sendMessage(TextMessage(objectMapper.writeValueAsBytes(b)))
       }
     }
   }
